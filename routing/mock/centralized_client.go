@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 	proto "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/gogo/protobuf/proto"
 	ds "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore"
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
@@ -14,7 +15,6 @@ import (
 	dhtpb "github.com/ipfs/go-ipfs/routing/dht/pb"
 	u "github.com/ipfs/go-ipfs/util"
 	"github.com/ipfs/go-ipfs/util/testutil"
-	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 )
 
 var log = logging.Logger("mockrouter")

@@ -3,6 +3,7 @@ package dht
 import (
 	"sync"
 
+	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	notif "github.com/ipfs/go-ipfs/notifications"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
@@ -11,7 +12,6 @@ import (
 	u "github.com/ipfs/go-ipfs/util"
 	pset "github.com/ipfs/go-ipfs/util/peerset"
 	todoctr "github.com/ipfs/go-ipfs/util/todocounter"
-	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 
 	process "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/goprocess"
 	ctxproc "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/goprocess/context"

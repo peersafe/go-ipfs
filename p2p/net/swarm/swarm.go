@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 	metrics "github.com/ipfs/go-ipfs/metrics"
 	mconn "github.com/ipfs/go-ipfs/metrics/conn"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
@@ -15,7 +16,6 @@ import (
 	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
 	transport "github.com/ipfs/go-ipfs/p2p/net/transport"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
-	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	ps "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-peerstream"

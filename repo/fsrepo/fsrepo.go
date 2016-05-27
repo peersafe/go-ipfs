@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 	ds "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore"
 	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore/flatfs"
 	levelds "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore/leveldb"
@@ -25,7 +26,6 @@ import (
 	dir "github.com/ipfs/go-ipfs/thirdparty/dir"
 	util "github.com/ipfs/go-ipfs/util"
 	ds2 "github.com/ipfs/go-ipfs/util/datastore2"
-	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 )
 
 var log = logging.Logger("fsrepo")
