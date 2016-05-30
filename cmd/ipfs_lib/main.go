@@ -1,5 +1,5 @@
 // cmd/ipfs implements the primary CLI binary for ipfs
-package main
+package ipfs_lib
 
 import (
 	"errors"
@@ -30,9 +30,6 @@ import (
 	config "github.com/ipfs/go-ipfs/repo/config"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	u "github.com/ipfs/go-ipfs/util"
-
-	"C"
-	"unsafe"
 )
 import (
 	"bytes"
@@ -61,8 +58,13 @@ type cmdInvocation struct {
 	node *core.IpfsNode
 }
 
-//export ipfs_cmd
-func ipfs_cmd(cmd string,out_res **C.char) int {
+func Ipfs_cmd_arm(cmd string) string {
+	res, str, _ := Ipfs_cmd(cmd)
+
+	return string(res) + "&#&" + str
+}
+
+func Ipfs_cmd(cmd string) (int, string, error) {
 	rand.Seed(time.Now().UnixNano())
 	runtime.GOMAXPROCS(3) // FIXME rm arbitrary choice for n
 
@@ -84,9 +86,7 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 	stopFunc, err := profileIfEnabled()
 	if err != nil {
 		str := printErr(err)
-		cs := unsafe.Pointer(C.CString(str))
-		*out_res = (*C.char)(cs)
-		return -1
+		return 1, str, err
 	}
 	defer stopFunc() // to be executed as late as possible
 
@@ -113,9 +113,7 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 		var outbuf bytes.Buffer
 		printHelp(false, &outbuf)
 		str := outbuf.String()
-		cs := unsafe.Pointer(C.CString(str))
-		*out_res = (*C.char)(cs)
-		return len(str)
+		return 0, str, nil
 	}
 
 	// parse the commandline into a command invocation
@@ -128,17 +126,13 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 		longH, shortH, err := invoc.requestedHelp()
 		if err != nil {
 			str := printErr(err)
-			cs := unsafe.Pointer(C.CString(str))
-			*out_res = (*C.char)(cs)
-			return -1
+			return 1, str, err
 		}
 		if longH || shortH {
 			var outbuf bytes.Buffer
 			printHelp(longH, &outbuf)
 			str := outbuf.String()
-			cs := unsafe.Pointer(C.CString(str))
-			*out_res = (*C.char)(cs)
-			return len(str)
+			return 0, str, nil
 		}
 	}
 
@@ -156,9 +150,7 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 			str = outbuf.String()
 
 		}
-		cs := unsafe.Pointer(C.CString(str))
-		*out_res = (*C.char)(cs)
-		return -1
+		return 1, str, err
 	}
 
 	// here we handle the cases where
@@ -168,9 +160,7 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 		var outbuf bytes.Buffer
 		printHelp(false, &outbuf)
 		str := outbuf.String()
-		cs := unsafe.Pointer(C.CString(str))
-		*out_res = (*C.char)(cs)
-		return len(str)
+		return 0, str, nil
 	}
 
 	// ok, finally, run the command invocation.
@@ -187,9 +177,7 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 			printMetaHelp(&outbuf)
 			str = outbuf.String()
 		}
-		cs := unsafe.Pointer(C.CString(str))
-		*out_res = (*C.char)(cs)
-		return -1
+		return 1, str, err
 	}
 
 	var resbuf bytes.Buffer
@@ -197,23 +185,10 @@ func ipfs_cmd(cmd string,out_res **C.char) int {
 	_, err = io.Copy(&resbuf, output)
 	if err != nil {
 		str := printErr(err)
-		cs := unsafe.Pointer(C.CString(str))
-		*out_res = (*C.char)(cs)
-		return -1
+		return 1, str, err
 	}
 	str := resbuf.String()
-	cs := unsafe.Pointer(C.CString(str))
-	*out_res = (*C.char)(cs)
-	return len(str)
-}
-
-// main roadmap:
-// - parse the commandline to get a cmdInvocation
-// - if user requests, help, print it and exit.
-// - run the command invocation
-// - output the response
-// - if anything fails, print error, maybe with help
-func main() {
+	return 0, str, nil
 }
 
 func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {

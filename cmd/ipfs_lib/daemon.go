@@ -1,4 +1,4 @@
-package main
+package ipfs_lib
 
 import (
 	_ "expvar"
