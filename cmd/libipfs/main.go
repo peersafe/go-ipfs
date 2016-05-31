@@ -11,6 +11,11 @@ import (
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 )
 
+const (
+	errRet = -1
+	sucRet = 0
+)
+
 //export ipfs_init
 func ipfs_init(out_res **C.char) int {
 	cmd := "ipfs init -e"
@@ -22,7 +27,7 @@ func ipfs_init(out_res **C.char) int {
 	if err == nil {
 		return len(str)
 	} else {
-		return -1
+		return errRet
 	}
 }
 
@@ -37,7 +42,7 @@ func ipfs_daemon(out_res **C.char) int {
 	if err == nil {
 		return len(str)
 	} else {
-		return -1
+		return errRet
 	}
 }
 
@@ -46,13 +51,13 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
 	if len(root_hash) != 46 {
 		out_res = nil
 		fmt.Println("error 1")
-		return -1
+		return errRet
 	}
 
 	if len(ipfs_path) == 0 {
 		out_res = nil
 		fmt.Println("error 2")
-		return -1
+		return errRet
 	}
 
 	var err error
@@ -61,7 +66,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
 		os_path, err := filepath.Abs(path.Clean(os_path))
 		if err != nil {
 			out_res = nil
-			return -1
+			return errRet
 		}
 
 		fi, err := os.Lstat(os_path)
@@ -72,13 +77,13 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
 			cmdSuff = "ipfs add "
 		} else {
 			out_res = nil
-			return -1
+			return errRet
 		}
 		fmt.Println("add cmd", cmdSuff, os_path)
 		_, addHash, err = ipfs_lib.Ipfs_cmd(cmdSuff + os_path)
 		if err != nil {
 			out_res = nil
-			return -1
+			return errRet
 		}
 	}
 
@@ -88,7 +93,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 	if err != nil {
 		out_res = nil
-		return -1
+		return errRet
 	}
 
 	cs := unsafe.Pointer(C.CString(str))
@@ -96,8 +101,28 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
 	if err == nil {
 		return len(str)
 	} else {
-		return -1
+		return errRet
 	}
+}
+
+//export ipfs_get
+func ipfs_get(shard_hash, os_path string) int {
+	if len(shard_hash) != 46 {
+		return errRet
+	}
+	if len(os_path) == 0 {
+		return errRet
+	}
+
+	os_path, _ = filepath.Abs(path.Clean(os_path))
+
+	cmd := "ipfs get " + shard_hash + " -o " + os_path
+	fmt.Println("get cmd:", cmd)
+	_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+	return sucRet
 }
 
 //export ipfs_cmd
@@ -109,7 +134,7 @@ func ipfs_cmd(cmd string, out_res **C.char) int {
 	if err == nil {
 		return len(str)
 	} else {
-		return -1
+		return errRet
 	}
 }
 
