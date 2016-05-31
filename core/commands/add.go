@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path"
@@ -217,6 +218,10 @@ remains to be implemented.
 		}
 		res.SetOutput(nil)
 
+		//var outbuf bytes.Buffer
+		//io.Copy(&outbuf, rr)
+		//fmt.Println("http <<<<", outbuf.String(), ">>>>")
+
 		quiet, _, err := req.Option("quiet").Bool()
 		if err != nil {
 			res.SetError(u.ErrCast(), cmds.ErrNormal)
@@ -251,20 +256,22 @@ remains to be implemented.
 
 		lastFile := ""
 		var totalProgress, prevFiles, lastBytes int64
+		var outbuf bytes.Buffer
+		var lastoutput *AddedObject
 
 		for out := range outChan {
 			output := out.(*AddedObject)
 			if len(output.Hash) > 0 {
+				lastoutput = output
 				if showProgressBar {
 					// clear progress bar line before we print "added x" output
 					fmt.Fprintf(res.Stderr(), "\033[2K\r")
 				}
 				if quiet {
-					fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
+					//fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
 				} else {
-					fmt.Fprintf(res.Stdout(), "added %s %s\n", output.Hash, output.Name)
+					//fmt.Fprintf(res.Stdout(), "added %s %s\n", output.Hash, output.Name)
 				}
-
 			} else {
 				log.Debugf("add progress: %v %v\n", output.Name, output.Bytes)
 
@@ -288,6 +295,8 @@ remains to be implemented.
 				bar.Update()
 			}
 		}
+		fmt.Fprintf(&outbuf, "%s", lastoutput.Hash)
+		res.SetOutput(bytes.NewReader(outbuf.Bytes()))
 	},
 	Type: AddedObject{},
 }
