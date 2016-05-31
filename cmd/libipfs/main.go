@@ -100,6 +100,29 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	return len(str)
 }
 
+//export ipfs_delete
+func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
+	if len(root_hash) != 46 {
+		return errRet
+	}
+
+	if len(ipfs_path) == 0 {
+		return errRet
+	}
+
+	cmd := "ipfs object patch " + root_hash + " rm-link " + ipfs_path
+	fmt.Println("object cmd", cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	cs := unsafe.Pointer(C.CString(str))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
+	return len(str)
+}
+
 //export ipfs_shard
 func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
 	if len(object_hash) != 46 {
