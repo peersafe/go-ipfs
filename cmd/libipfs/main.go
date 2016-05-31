@@ -25,15 +25,14 @@ func ipfs_init(out_res *C.char) int {
 	cmd := "ipfs init -e"
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 	fmt.Println("[[", str, "]]")
+	if err != nil {
+		return errRet
+	}
 
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
-	if err == nil {
-		return len(str)
-	} else {
-		return errRet
-	}
+	return len(str)
 }
 
 //export ipfs_daemon
@@ -41,27 +40,24 @@ func ipfs_daemon(out_res *C.char) int {
 	cmd := "ipfs daemon"
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 	fmt.Println("[[", str, "]]")
+	if err != nil {
+		return errRet
+	}
 
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
-	if err == nil {
-		return len(str)
-	} else {
-		return errRet
-	}
+	return len(str)
 }
 
 //export ipfs_add
 func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	if len(root_hash) != 46 {
-		out_res = nil
 		fmt.Println("error 1")
 		return errRet
 	}
 
 	if len(ipfs_path) == 0 {
-		out_res = nil
 		fmt.Println("error 2")
 		return errRet
 	}
@@ -71,7 +67,6 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	if len(os_path) != 0 {
 		os_path, err := filepath.Abs(path.Clean(os_path))
 		if err != nil {
-			out_res = nil
 			return errRet
 		}
 
@@ -82,13 +77,11 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 		} else if fi.Mode().IsRegular() {
 			cmdSuff = "ipfs add "
 		} else {
-			out_res = nil
 			return errRet
 		}
 		fmt.Println("add cmd", cmdSuff, os_path)
 		_, addHash, err = ipfs_lib.Ipfs_cmd(cmdSuff + os_path)
 		if err != nil {
-			out_res = nil
 			return errRet
 		}
 	}
@@ -98,18 +91,36 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	fmt.Println("object cmd", cmd)
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 	if err != nil {
-		out_res = nil
 		return errRet
 	}
 
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
-	if err == nil {
-		return len(str)
-	} else {
+	return len(str)
+}
+
+//export ipfs_shard
+func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
+	if len(object_hash) != 46 {
 		return errRet
 	}
+
+	if len(shard_name) == 0 {
+		return errRet
+	}
+
+	cmd := "ipfs object patch QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn add-link " + shard_name + " " + object_hash
+	fmt.Println("object cmd", cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	cs := unsafe.Pointer(C.CString(str))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
+	return len(str)
 }
 
 //export ipfs_get
