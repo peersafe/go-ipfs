@@ -1,5 +1,9 @@
 package main
 
+/*
+#include <string.h>
+#include <stdlib.h>
+*/
 import "C"
 import (
 	"fmt"
@@ -17,13 +21,14 @@ const (
 )
 
 //export ipfs_init
-func ipfs_init(out_res **C.char) int {
+func ipfs_init(out_res *C.char) int {
 	cmd := "ipfs init -e"
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 	fmt.Println("[[", str, "]]")
 
 	cs := unsafe.Pointer(C.CString(str))
-	*out_res = (*C.char)(cs)
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
 	if err == nil {
 		return len(str)
 	} else {
@@ -32,13 +37,14 @@ func ipfs_init(out_res **C.char) int {
 }
 
 //export ipfs_daemon
-func ipfs_daemon(out_res **C.char) int {
+func ipfs_daemon(out_res *C.char) int {
 	cmd := "ipfs daemon"
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 	fmt.Println("[[", str, "]]")
 
 	cs := unsafe.Pointer(C.CString(str))
-	*out_res = (*C.char)(cs)
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
 	if err == nil {
 		return len(str)
 	} else {
@@ -47,7 +53,7 @@ func ipfs_daemon(out_res **C.char) int {
 }
 
 //export ipfs_add
-func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
+func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	if len(root_hash) != 46 {
 		out_res = nil
 		fmt.Println("error 1")
@@ -97,7 +103,8 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res **C.char) int {
 	}
 
 	cs := unsafe.Pointer(C.CString(str))
-	*out_res = (*C.char)(cs)
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
 	if err == nil {
 		return len(str)
 	} else {
@@ -126,11 +133,12 @@ func ipfs_get(shard_hash, os_path string) int {
 }
 
 //export ipfs_cmd
-func ipfs_cmd(cmd string, out_res **C.char) int {
+func ipfs_cmd(cmd string, out_res *C.char) int {
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 
 	cs := unsafe.Pointer(C.CString(str))
-	*out_res = (*C.char)(cs)
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
 	if err == nil {
 		return len(str)
 	} else {
