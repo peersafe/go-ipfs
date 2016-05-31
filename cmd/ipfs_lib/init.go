@@ -1,6 +1,7 @@
 package ipfs_lib
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -76,10 +77,12 @@ var initCmd = &cmds.Command{
 			nBitsForKeypair = nBitsForKeypairDefault
 		}
 
-		if err := doInit(os.Stdout, req.InvocContext().ConfigRoot, force, empty, nBitsForKeypair); err != nil {
+		var outbuf bytes.Buffer
+		if err := doInit(&outbuf, req.InvocContext().ConfigRoot, force, empty, nBitsForKeypair); err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
+		res.SetOutput(bytes.NewReader(outbuf.Bytes()))
 	},
 }
 
@@ -93,9 +96,9 @@ func initWithDefaults(out io.Writer, repoRoot string) error {
 }
 
 func doInit(out io.Writer, repoRoot string, force bool, empty bool, nBitsForKeypair int) error {
-	if _, err := fmt.Fprintf(out, "initializing ipfs node at %s\n", repoRoot); err != nil {
-		return err
-	}
+	//if _, err := fmt.Fprintf(out, "initializing ipfs node at %s\n", repoRoot); err != nil {
+	//	return err
+	//}
 
 	if err := checkWriteable(repoRoot); err != nil {
 		return err
