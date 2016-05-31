@@ -11,6 +11,10 @@ import (
 )
 
 const separtor = "&X&"
+const (
+	errRet = 1
+	sucRet = 0
+)
 
 func Ipfs_cmd_arm(cmd string) string {
 	res, str, _ := Ipfs_cmd(cmd)
@@ -41,7 +45,7 @@ func Ipfs_add(os_path string) string {
 	if len(os_path) != 0 {
 		os_path, err := filepath.Abs(path.Clean(os_path))
 		if err != nil {
-			return 1 + separtor + ""
+			return errRet + separtor + ""
 		}
 
 		fi, err := os.Lstat(os_path)
@@ -51,7 +55,7 @@ func Ipfs_add(os_path string) string {
 		} else if fi.Mode().IsRegular() {
 			cmdSuff = "ipfs add "
 		} else {
-			return 1 + separtor + ""
+			return errRet + separtor + ""
 		}
 		fmt.Println("add cmd", cmdSuff, os_path)
 		res, addHash, _ = ipfs_lib.Ipfs_cmd(cmdSuff + os_path)
@@ -61,6 +65,25 @@ func Ipfs_add(os_path string) string {
 		return string(res) + separtor + addHash
 
 	} else {
-		return 1 + separtor + ""
+		return errRet + separtor + ""
 	}
+}
+
+func Ipfs_get(object_hash, os_path string) string {
+	if len(shard_hash) != 46 {
+		return errRet + separtor + ""
+	}
+	if len(os_path) == 0 {
+		return errRet + separtor + ""
+	}
+
+	os_path, _ = filepath.Abs(path.Clean(os_path))
+
+	cmd := "ipfs get " + shard_hash + " -o " + os_path
+	fmt.Println("get cmd:", cmd)
+	_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet + separtor + ""
+	}
+	return sucRet + separtor + ""
 }
