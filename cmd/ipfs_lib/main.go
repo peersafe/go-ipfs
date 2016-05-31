@@ -20,6 +20,7 @@ import (
 	manet "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr-net"
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
+
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
 	cmds "github.com/ipfs/go-ipfs/commands"
 	cmdsCli "github.com/ipfs/go-ipfs/commands/cli"
@@ -56,12 +57,6 @@ type cmdInvocation struct {
 	cmd  *cmds.Command
 	req  cmds.Request
 	node *core.IpfsNode
-}
-
-func Ipfs_cmd_arm(cmd string) string {
-	res, str, _ := Ipfs_cmd(cmd)
-
-	return string(res) + "&#&" + str
 }
 
 func Ipfs_cmd(cmd string) (int, string, error) {
