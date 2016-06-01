@@ -39,6 +39,12 @@ func Ipfs_daemon() string {
 	return string(res) + spartor + str
 }
 
+func Ipfs_id() string {
+	cmd := "ipfs id"
+	res, str, _ := Ipfs_cmd(cmd)
+	return string(res) + spartor + str
+}
+
 func Ipfs_add(os_path string) string {
 	var err error
 	var addHash string
