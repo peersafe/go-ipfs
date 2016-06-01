@@ -6,10 +6,12 @@ package main
 */
 import "C"
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
@@ -138,6 +140,62 @@ func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
 	return len(str)
+}
+
+//export ipfs_move
+func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) int {
+	if len(root_hash) != hashLen {
+		return errRet
+	}
+
+	if len(ipfs_path_des) == 0 {
+		return errRet
+	}
+
+	if len(ipfs_path_des) == 0 {
+		return errRet
+	}
+
+	ipfs_path_src = path.Clean(ipfs_path_src)
+	ipfs_path_des = path.Clean(ipfs_path_des)
+
+	statCmd := "ipfs object stat " + root_hash + "/" + ipfs_path_src
+	fmt.Println(statCmd)
+	_, statStr, err := ipfs_lib.Ipfs_cmd(statCmd)
+	if err != nil {
+		return errRet
+	}
+
+	type statInfo struct {
+		Hash string
+	}
+
+	var nodeStat statInfo
+	err = json.Unmarshal([]byte(statStr), &nodeStat)
+	if err != nil {
+		return errRet
+	}
+	nodeStat.Hash = strings.Trim(nodeStat.Hash, "\n")
+
+	addCmd := "ipfs object patch " + root_hash + " add-link " + ipfs_path_des + " " + nodeStat.Hash
+	fmt.Println(addCmd)
+	_, newHash, err := ipfs_lib.Ipfs_cmd(addCmd)
+	if err != nil {
+		return errRet
+	}
+
+	newHash = strings.Trim(newHash, "\n")
+	delCmd := "ipfs object patch " + newHash + " rm-link " + ipfs_path_src
+	fmt.Println(delCmd)
+	_, new_root_hash, err := ipfs_lib.Ipfs_cmd(delCmd)
+	if err != nil {
+		return errRet
+	}
+
+	cs := unsafe.Pointer(C.CString(new_root_hash))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(new_root_hash)))
+	C.free(cs)
+	return len(new_root_hash)
 }
 
 //export ipfs_shard
