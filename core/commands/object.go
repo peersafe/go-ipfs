@@ -276,14 +276,8 @@ var objectStatCmd = &cmds.Command{
 			ns := res.Output().(*dag.NodeStat)
 
 			buf := new(bytes.Buffer)
-			w := func(s string, n int) {
-				fmt.Fprintf(buf, "%s: %d\n", s, n)
-			}
-			w("NumLinks", ns.NumLinks)
-			w("BlockSize", ns.BlockSize)
-			w("LinksSize", ns.LinksSize)
-			w("DataSize", ns.DataSize)
-			w("CumulativeSize", ns.CumulativeSize)
+			enc := json.NewEncoder(buf)
+			enc.Encode(ns)
 
 			return buf, nil
 		},
