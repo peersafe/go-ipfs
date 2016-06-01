@@ -50,6 +50,21 @@ func ipfs_daemon(out_res *C.char) int {
 	return len(str)
 }
 
+//export ipfs_id
+func ipfs_id(out_res *C.char) int {
+	cmd := "ipfs id"
+	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	fmt.Println("[[" + str + "]]")
+	if err != nil {
+		return errRet
+	}
+
+	cs := unsafe.Pointer(C.CString(str))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
+	return len(str)
+}
+
 //export ipfs_add
 func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	if len(root_hash) != 46 {
