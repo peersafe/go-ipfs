@@ -15,6 +15,8 @@ import (
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 )
 
+const hashLen int = 46
+
 const (
 	errRet = -1
 	sucRet = 0
@@ -67,7 +69,7 @@ func ipfs_id(out_res *C.char) int {
 
 //export ipfs_add
 func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
-	if len(root_hash) != 46 {
+	if len(root_hash) != hashLen {
 		fmt.Println("error 1")
 		return errRet
 	}
@@ -117,7 +119,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 
 //export ipfs_delete
 func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
-	if len(root_hash) != 46 {
+	if len(root_hash) != hashLen {
 		return errRet
 	}
 
@@ -140,7 +142,7 @@ func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
 
 //export ipfs_shard
 func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
-	if len(object_hash) != 46 {
+	if len(object_hash) != hashLen {
 		return errRet
 	}
 
@@ -163,7 +165,7 @@ func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
 
 //export ipfs_get
 func ipfs_get(shard_hash, os_path string) int {
-	if len(shard_hash) != 46 {
+	if len(shard_hash) != hashLen {
 		return errRet
 	}
 	if len(os_path) == 0 {
@@ -179,6 +181,25 @@ func ipfs_get(shard_hash, os_path string) int {
 		return errRet
 	}
 	return sucRet
+}
+
+//export ipfs_query
+func ipfs_query(object_hash string, out_res *C.char) int {
+	if len(object_hash) != hashLen {
+		return errRet
+	}
+
+	cmd := "ipfs ls " + object_hash
+	fmt.Println("ls cmd:", cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	cs := unsafe.Pointer(C.CString(str))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
+	return len(str)
 }
 
 //export ipfs_cmd

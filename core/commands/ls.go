@@ -2,9 +2,8 @@ package commands
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/json"
 	"io"
-	"text/tabwriter"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
@@ -102,28 +101,10 @@ it contains, with the following format:
 	Marshalers: cmds.MarshalerMap{
 		cmds.Text: func(res cmds.Response) (io.Reader, error) {
 
-			headers, _, _ := res.Request().Option("headers").Bool()
 			output := res.Output().(*LsOutput)
 			buf := new(bytes.Buffer)
-			w := tabwriter.NewWriter(buf, 1, 2, 1, ' ', 0)
-			for _, object := range output.Objects {
-				if len(output.Objects) > 1 {
-					fmt.Fprintf(w, "%s:\n", object.Hash)
-				}
-				if headers {
-					fmt.Fprintln(w, "Hash\tSize\tName")
-				}
-				for _, link := range object.Links {
-					if link.Type == unixfspb.Data_Directory {
-						link.Name += "/"
-					}
-					fmt.Fprintf(w, "%s\t%v\t%s\n", link.Hash, link.Size, link.Name)
-				}
-				if len(output.Objects) > 1 {
-					fmt.Fprintln(w)
-				}
-			}
-			w.Flush()
+			enc := json.NewEncoder(buf)
+			enc.Encode(output)
 
 			return buf, nil
 		},
