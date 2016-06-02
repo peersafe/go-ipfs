@@ -260,6 +260,32 @@ func ipfs_query(object_hash string, out_res *C.char) int {
 	return len(str)
 }
 
+//export ipfs_merge
+func ipfs_merge(root_hash, ipfs_path, shard_hash string, out_res *C.char) int {
+	if len(root_hash) != hashLen {
+		return errRet
+	}
+
+	if len(shard_hash) != hashLen {
+		return errRet
+	}
+
+	if len(ipfs_path) == 0 {
+		return errRet
+	}
+
+	cmd := "ipfs object patch " + root_hash + " add-link " + ipfs_path + " " + shard_hash
+	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	cs := unsafe.Pointer(C.CString(str))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
+	return len(str)
+}
+
 //export ipfs_cmd
 func ipfs_cmd(cmd string, out_res *C.char) int {
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
