@@ -18,6 +18,8 @@ import (
 )
 
 const hashLen int = 46
+const keyLen int = 1596
+const endsep = "\n"
 
 const (
 	errRet = -1
@@ -33,6 +35,7 @@ func ipfs_init(out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -48,6 +51,7 @@ func ipfs_daemon(out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -63,6 +67,7 @@ func ipfs_id(out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -113,6 +118,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -136,6 +142,7 @@ func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -175,7 +182,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 	if err != nil {
 		return errRet
 	}
-	nodeStat.Hash = strings.Trim(nodeStat.Hash, "\n")
+	nodeStat.Hash = strings.Trim(nodeStat.Hash, endsep)
 
 	addCmd := "ipfs object patch " + root_hash + " add-link " + ipfs_path_des + " " + nodeStat.Hash
 	fmt.Println(addCmd)
@@ -184,7 +191,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 		return errRet
 	}
 
-	newHash = strings.Trim(newHash, "\n")
+	newHash = strings.Trim(newHash, endsep)
 	delCmd := "ipfs object patch " + newHash + " rm-link " + ipfs_path_src
 	fmt.Println(delCmd)
 	_, new_root_hash, err := ipfs_lib.Ipfs_cmd(delCmd)
@@ -192,6 +199,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 		return errRet
 	}
 
+	new_root_hash = strings.Trim(new_root_hash, endsep)
 	cs := unsafe.Pointer(C.CString(new_root_hash))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(new_root_hash)))
 	C.free(cs)
@@ -215,6 +223,7 @@ func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -242,9 +251,20 @@ func ipfs_get(shard_hash, os_path string) int {
 }
 
 //export ipfs_query
-func ipfs_query(object_hash string, out_res *C.char) int {
+func ipfs_query(object_hash, ipfs_path string, out_res *C.char) int {
 	if len(object_hash) != hashLen {
 		return errRet
+	}
+
+	ipfs_path = path.Clean(ipfs_path)
+	if len(ipfs_path) != 0 {
+		statCmd := "ipfs object stat " + object_hash + "/" + ipfs_path
+		fmt.Println(statCmd)
+		_, statStr, err := ipfs_lib.Ipfs_cmd(statCmd)
+		if err != nil {
+			return errRet
+		}
+		object_hash = strings.Trim(statStr, endsep)
 	}
 
 	cmd := "ipfs ls " + object_hash
@@ -254,6 +274,7 @@ func ipfs_query(object_hash string, out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
@@ -280,16 +301,78 @@ func ipfs_merge(root_hash, ipfs_path, shard_hash string, out_res *C.char) int {
 		return errRet
 	}
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
 	return len(str)
 }
 
+//export ipfs_peerid
+func ipfs_peerid(new_id string, out_res *C.char) int {
+	if len(new_id) != hashLen && len(new_id) != 0 {
+		return errRet
+	}
+
+	cmd := "ipfs config Identity.PeerID"
+	_, peeId, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	if len(new_id) == hashLen {
+		cmd += " " + new_id
+		fmt.Println(cmd)
+		_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+		if err != nil {
+			fmt.Println("error,", err)
+			return errRet
+		}
+		peeId = new_id
+	}
+
+	peeId = strings.Trim(peeId, endsep)
+	cs := unsafe.Pointer(C.CString(peeId))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(peeId)))
+	C.free(cs)
+	return len(peeId)
+}
+
+//export ipfs_privkey
+func ipfs_privkey(new_key string, out_res *C.char) int {
+	if len(new_key) != keyLen && len(new_key) != 0 {
+		return errRet
+	}
+
+	cmd := "ipfs config Identity.PrivKey"
+	_, key, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	if len(new_key) == hashLen {
+		cmd += " " + new_key
+		fmt.Println(cmd)
+		_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+		if err != nil {
+			fmt.Println("error,", err)
+			return errRet
+		}
+		key = new_key
+	}
+
+	key = strings.Trim(key, endsep)
+	cs := unsafe.Pointer(C.CString(key))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(key)))
+	C.free(cs)
+	return len(key)
+}
+
 //export ipfs_cmd
 func ipfs_cmd(cmd string, out_res *C.char) int {
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
 
+	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
