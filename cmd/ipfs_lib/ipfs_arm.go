@@ -5,12 +5,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir/homedir"
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 )
 
+const hashLen int = 46
+const keylen int = 1596
 const separtor = "&X&"
+const endsep = "\n"
 const (
 	errRet = 1
 	sucRet = 0
@@ -19,6 +23,7 @@ const (
 func Ipfs_cmd_arm(cmd string) string {
 	res, str, _ := Ipfs_cmd(cmd)
 
+	str = strings.Trim(str, endsep)
 	return string(res) + separtor + str
 }
 
@@ -30,19 +35,68 @@ func Ipfs_init(path string) string {
 	cmd := "ipfs init -e"
 	homedir.Home_Unix_Dir = path
 	res, str, _ := Ipfs_cmd(cmd)
+	str = strings.Trim(str, endsep)
 	return string(res) + separtor + str
 }
 
 func Ipfs_daemon() string {
 	cmd := "ipfs daemon"
 	res, str, _ := Ipfs_cmd(cmd)
+	str = strings.Trim(str, endsep)
 	return string(res) + spartor + str
 }
 
 func Ipfs_id() string {
 	cmd := "ipfs id"
 	res, str, _ := Ipfs_cmd(cmd)
+	str = strings.Trim(str, endsep)
 	return string(res) + spartor + str
+}
+
+func Ipfs_peerid(new_id string) string {
+	if len(new_id) != hashLen && len(new_id) != 0 {
+		return errRet + separtor + ""
+	}
+
+	cmd := "ipfs config Identity.PeerID"
+	_, peerId, err := Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet + separtor + ""
+	}
+
+	if len(new_id) == hashLen {
+		cmd += " " + new_id
+		_, _, err := Ipfs_cmd(cmd)
+		if err != nil {
+			return errRet + separtor + ""
+		}
+		peerId = new_id
+	}
+	peerId = strings.Trim(peerId, endsep)
+	return sucRet + spartor + peerId
+}
+
+func Ipfs_privkey(new_key string) string {
+	if len(new_key) != keyLen && len(new_key) != 0 {
+		return errRet + separtor + ""
+	}
+
+	cmd := "ipfs config Identity.PrivKey"
+	_, key, err := Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet + separtor + ""
+	}
+
+	if len(new_key) == hashLen {
+		cmd += " " + new_key
+		_, _, err := Ipfs_cmd(cmd)
+		if err != nil {
+			return errRet + separtor + ""
+		}
+		key = new_key
+	}
+	key = strings.Trim(key, endsep)
+	return sucRet + spartor + key
 }
 
 func Ipfs_add(os_path string) string {
@@ -68,6 +122,7 @@ func Ipfs_add(os_path string) string {
 		if err != nil {
 			return string(res) + separtor + ""
 		}
+		addHash = strings.Trim(addHash, endsep)
 		return string(res) + separtor + addHash
 
 	} else {
@@ -76,7 +131,7 @@ func Ipfs_add(os_path string) string {
 }
 
 func Ipfs_get(object_hash, os_path string) string {
-	if len(shard_hash) != 46 {
+	if len(shard_hash) != hashLen {
 		return errRet + separtor + ""
 	}
 	if len(os_path) == 0 {
