@@ -12,7 +12,7 @@ import (
 )
 
 const hashLen int = 46
-const keylen int = 1596
+const keyLen int = 1596
 const separtor = "&X&"
 const endsep = "\n"
 const (
