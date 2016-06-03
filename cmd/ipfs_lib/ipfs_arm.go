@@ -118,7 +118,7 @@ func Ipfs_add(os_path string) string {
 			return errRet + separtor + ""
 		}
 		fmt.Println("add cmd", cmdSuff, os_path)
-		res, addHash, _ = ipfs_lib.Ipfs_cmd(cmdSuff + os_path)
+		res, addHash, err := ipfs_lib.Ipfs_cmd(cmdSuff + os_path)
 		if err != nil {
 			return string(res) + separtor + ""
 		}
@@ -148,3 +148,19 @@ func Ipfs_get(object_hash, os_path string) string {
 	}
 	return sucRet + separtor + ""
 }
+
+func Ipfs_publish(object_hash string) string {
+	if len(object_hash) != hashLen {
+		return errRet
+	}
+
+	cmd := "ipfs name publish /ipfs/" + object_hash
+	fmt.Println(cmd)
+	res, hash, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet + separtor + ""
+	}
+	hash = strings.Trim(hash, endsep)
+	return string(res) + separtor + hash
+}
+
