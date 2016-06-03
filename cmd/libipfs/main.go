@@ -26,6 +26,10 @@ const (
 	sucRet = 0
 )
 
+type statInfo struct {
+	Hash string
+}
+
 //export ipfs_init
 func ipfs_init(out_res *C.char) int {
 	cmd := "ipfs init -e"
@@ -173,10 +177,6 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 		return errRet
 	}
 
-	type statInfo struct {
-		Hash string
-	}
-
 	var nodeStat statInfo
 	err = json.Unmarshal([]byte(statStr), &nodeStat)
 	if err != nil {
@@ -264,7 +264,13 @@ func ipfs_query(object_hash, ipfs_path string, out_res *C.char) int {
 		if err != nil {
 			return errRet
 		}
-		object_hash = strings.Trim(statStr, endsep)
+
+		var nodeStat statInfo
+		err = json.Unmarshal([]byte(statStr), &nodeStat)
+		if err != nil {
+			return errRet
+		}
+		object_hash = strings.Trim(nodeStat.Hash, endsep)
 	}
 
 	cmd := "ipfs ls " + object_hash
