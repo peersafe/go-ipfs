@@ -374,6 +374,26 @@ func ipfs_privkey(new_key string, out_res *C.char) int {
 	return len(key)
 }
 
+//export ipfs_publish
+func ipfs_publish(object_hash string, out_res *C.char) int {
+	if len(object_hash) != hashLen {
+		return errRet
+	}
+
+	cmd := "ipfs name publish /ipfs/" + object_hash
+	fmt.Println(cmd)
+	_, hash, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
+
+	hash = strings.Trim(hash, endsep)
+	cs := unsafe.Pointer(C.CString(hash))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(hash)))
+	C.free(cs)
+	return len(hash)
+}
+
 //export ipfs_cmd
 func ipfs_cmd(cmd string, out_res *C.char) int {
 	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
