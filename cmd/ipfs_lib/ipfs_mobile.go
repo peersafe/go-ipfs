@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 )
 
+const preLen int = 6
 const hashLen int = 46
 const keyLen int = 1596
 const separtor = "&X&"
@@ -129,7 +130,7 @@ func Ipfs_add(os_path string) string {
 }
 
 func Ipfs_get(shard_hash, os_path string) string {
-	if len(shard_hash) != hashLen {
+	if len(shard_hash) == 0 {
 		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 	}
 	if len(os_path) == 0 {
@@ -148,11 +149,11 @@ func Ipfs_get(shard_hash, os_path string) string {
 }
 
 func Ipfs_publish(object_hash string) string {
-	if len(object_hash) != hashLen {
+	if len(object_hash) != hashLen+preLen {
 		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 	}
 
-	cmd := "ipfs name publish /ipfs/" + object_hash
+	cmd := "ipfs name publish " + object_hash
 	fmt.Println(cmd)
 	res, hash, err := Ipfs_cmd(cmd)
 	if err != nil {
