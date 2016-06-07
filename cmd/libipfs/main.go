@@ -63,9 +63,9 @@ func ipfs_daemon(out_res *C.char) int {
 }
 
 //export ipfs_id
-func ipfs_id(out_res *C.char) int {
+func ipfs_id(second int, out_res *C.char) int {
 	cmd := "ipfs id"
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	fmt.Println("[[" + str + "]]")
 	if err != nil {
 		return errRet
@@ -79,7 +79,7 @@ func ipfs_id(out_res *C.char) int {
 }
 
 //export ipfs_add
-func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
+func ipfs_add(root_hash, ipfs_path, os_path string, second int, out_res *C.char) int {
 	if len(root_hash) != hashLen {
 		fmt.Println("error 1")
 		return errRet
@@ -108,7 +108,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 			return errRet
 		}
 		fmt.Println("add cmd", cmdSuff, os_path)
-		_, addHash, err = ipfs_lib.Ipfs_cmd(cmdSuff + os_path)
+		_, addHash, err = ipfs_lib.Ipfs_cmd_time(cmdSuff+os_path, second)
 		if err != nil {
 			return errRet
 		}
@@ -117,7 +117,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 	ipfs_path = path.Clean(ipfs_path)
 	cmd := "ipfs object patch " + root_hash + " add-link " + ipfs_path + " " + addHash
 	fmt.Println("object cmd", cmd)
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -130,7 +130,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, out_res *C.char) int {
 }
 
 //export ipfs_delete
-func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
+func ipfs_delete(root_hash, ipfs_path string, second int, out_res *C.char) int {
 	if len(root_hash) != hashLen {
 		return errRet
 	}
@@ -141,7 +141,7 @@ func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
 
 	cmd := "ipfs object patch " + root_hash + " rm-link " + ipfs_path
 	fmt.Println("object cmd", cmd)
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -154,7 +154,7 @@ func ipfs_delete(root_hash, ipfs_path string, out_res *C.char) int {
 }
 
 //export ipfs_move
-func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) int {
+func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, second int, out_res *C.char) int {
 	if len(root_hash) != hashLen {
 		return errRet
 	}
@@ -172,7 +172,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 
 	statCmd := "ipfs object stat " + root_hash + "/" + ipfs_path_src
 	fmt.Println(statCmd)
-	_, statStr, err := ipfs_lib.Ipfs_cmd(statCmd)
+	_, statStr, err := ipfs_lib.Ipfs_cmd_time(statCmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -186,7 +186,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 
 	addCmd := "ipfs object patch " + root_hash + " add-link " + ipfs_path_des + " " + nodeStat.Hash
 	fmt.Println(addCmd)
-	_, newHash, err := ipfs_lib.Ipfs_cmd(addCmd)
+	_, newHash, err := ipfs_lib.Ipfs_cmd_time(addCmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -194,7 +194,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 	newHash = strings.Trim(newHash, endsep)
 	delCmd := "ipfs object patch " + newHash + " rm-link " + ipfs_path_src
 	fmt.Println(delCmd)
-	_, new_root_hash, err := ipfs_lib.Ipfs_cmd(delCmd)
+	_, new_root_hash, err := ipfs_lib.Ipfs_cmd_time(delCmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -207,7 +207,7 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, out_res *C.char) 
 }
 
 //export ipfs_shard
-func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
+func ipfs_shard(object_hash, shard_name string, second int, out_res *C.char) int {
 	if len(object_hash) != hashLen {
 		return errRet
 	}
@@ -218,7 +218,7 @@ func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
 
 	cmd := "ipfs object patch QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn add-link " + shard_name + " " + object_hash
 	fmt.Println("object cmd", cmd)
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -231,7 +231,7 @@ func ipfs_shard(object_hash, shard_name string, out_res *C.char) int {
 }
 
 //export ipfs_get
-func ipfs_get(shard_hash, os_path string) int {
+func ipfs_get(shard_hash, os_path string, second int) int {
 	if len(shard_hash) != hashLen {
 		return errRet
 	}
@@ -243,7 +243,7 @@ func ipfs_get(shard_hash, os_path string) int {
 
 	cmd := "ipfs get " + shard_hash + " -o " + os_path
 	fmt.Println("get cmd:", cmd)
-	_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, _, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -251,7 +251,7 @@ func ipfs_get(shard_hash, os_path string) int {
 }
 
 //export ipfs_query
-func ipfs_query(object_hash, ipfs_path string, out_res *C.char) int {
+func ipfs_query(object_hash, ipfs_path string, second int, out_res *C.char) int {
 	if len(object_hash) != hashLen {
 		return errRet
 	}
@@ -260,7 +260,7 @@ func ipfs_query(object_hash, ipfs_path string, out_res *C.char) int {
 	if len(ipfs_path) != 0 {
 		statCmd := "ipfs object stat " + object_hash + "/" + ipfs_path
 		fmt.Println(statCmd)
-		_, statStr, err := ipfs_lib.Ipfs_cmd(statCmd)
+		_, statStr, err := ipfs_lib.Ipfs_cmd_time(statCmd, second)
 		if err != nil {
 			return errRet
 		}
@@ -275,7 +275,7 @@ func ipfs_query(object_hash, ipfs_path string, out_res *C.char) int {
 
 	cmd := "ipfs ls " + object_hash
 	fmt.Println("ls cmd:", cmd)
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -288,7 +288,7 @@ func ipfs_query(object_hash, ipfs_path string, out_res *C.char) int {
 }
 
 //export ipfs_merge
-func ipfs_merge(root_hash, ipfs_path, shard_hash string, out_res *C.char) int {
+func ipfs_merge(root_hash, ipfs_path, shard_hash string, second int, out_res *C.char) int {
 	if len(root_hash) != hashLen {
 		return errRet
 	}
@@ -302,7 +302,7 @@ func ipfs_merge(root_hash, ipfs_path, shard_hash string, out_res *C.char) int {
 	}
 
 	cmd := "ipfs object patch " + root_hash + " add-link " + ipfs_path + " " + shard_hash
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -315,13 +315,13 @@ func ipfs_merge(root_hash, ipfs_path, shard_hash string, out_res *C.char) int {
 }
 
 //export ipfs_peerid
-func ipfs_peerid(new_id string, out_res *C.char) int {
+func ipfs_peerid(new_id string, second int, out_res *C.char) int {
 	if len(new_id) != hashLen && len(new_id) != 0 {
 		return errRet
 	}
 
 	cmd := "ipfs config Identity.PeerID"
-	_, peeId, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, peeId, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -329,7 +329,7 @@ func ipfs_peerid(new_id string, out_res *C.char) int {
 	if len(new_id) == hashLen {
 		cmd += " " + new_id
 		fmt.Println(cmd)
-		_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+		_, _, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 		if err != nil {
 			fmt.Println("error,", err)
 			return errRet
@@ -345,13 +345,13 @@ func ipfs_peerid(new_id string, out_res *C.char) int {
 }
 
 //export ipfs_privkey
-func ipfs_privkey(new_key string, out_res *C.char) int {
+func ipfs_privkey(new_key string, second int, out_res *C.char) int {
 	if len(new_key) != keyLen && len(new_key) != 0 {
 		return errRet
 	}
 
 	cmd := "ipfs config Identity.PrivKey"
-	_, key, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, key, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -359,7 +359,7 @@ func ipfs_privkey(new_key string, out_res *C.char) int {
 	if len(new_key) == hashLen {
 		cmd += " " + new_key
 		fmt.Println(cmd)
-		_, _, err := ipfs_lib.Ipfs_cmd(cmd)
+		_, _, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 		if err != nil {
 			fmt.Println("error,", err)
 			return errRet
@@ -375,14 +375,14 @@ func ipfs_privkey(new_key string, out_res *C.char) int {
 }
 
 //export ipfs_publish
-func ipfs_publish(object_hash string, out_res *C.char) int {
+func ipfs_publish(object_hash string, second int, out_res *C.char) int {
 	if len(object_hash) != hashLen {
 		return errRet
 	}
 
 	cmd := "ipfs name publish /ipfs/" + object_hash
 	fmt.Println(cmd)
-	_, hash, err := ipfs_lib.Ipfs_cmd(cmd)
+	_, hash, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return errRet
 	}
@@ -395,8 +395,8 @@ func ipfs_publish(object_hash string, out_res *C.char) int {
 }
 
 //export ipfs_cmd
-func ipfs_cmd(cmd string, out_res *C.char) int {
-	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+func ipfs_cmd(cmd string, second int, out_res *C.char) int {
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
 
 	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
