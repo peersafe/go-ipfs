@@ -20,8 +20,8 @@ const (
 	sucRet = 0
 )
 
-func Ipfs_cmd_arm(cmd string) string {
-	res, str, _ := Ipfs_cmd(cmd)
+func Ipfs_cmd_arm(cmd string, second int) string {
+	res, str, _ := Ipfs_cmd_time(cmd, second)
 
 	str = strings.Trim(str, endsep)
 	return fmt.Sprintf("%d%s%s", res, separtor, str)
@@ -100,7 +100,7 @@ func Ipfs_privkey(new_key string) string {
 	return fmt.Sprintf("%d%s%s", sucRet, separtor, key)
 }
 
-func Ipfs_add(os_path string) string {
+func Ipfs_add(os_path string, second int) string {
 	if len(os_path) != 0 {
 		os_path, err := filepath.Abs(path.Clean(os_path))
 		if err != nil {
@@ -117,7 +117,7 @@ func Ipfs_add(os_path string) string {
 			return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 		}
 		fmt.Println("add cmd", cmdSuff, os_path)
-		res, addHash, err := Ipfs_cmd(cmdSuff + os_path)
+		res, addHash, err := Ipfs_cmd_time(cmdSuff+os_path, second)
 		if err != nil {
 			return fmt.Sprintf("%d%s%s", res, separtor, "")
 		}
@@ -129,7 +129,7 @@ func Ipfs_add(os_path string) string {
 	}
 }
 
-func Ipfs_get(shard_hash, os_path string) string {
+func Ipfs_get(shard_hash, os_path string, second int) string {
 	if len(shard_hash) == 0 {
 		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 	}
@@ -141,21 +141,21 @@ func Ipfs_get(shard_hash, os_path string) string {
 
 	cmd := "ipfs get " + shard_hash + " -o " + os_path
 	fmt.Println("get cmd:", cmd)
-	_, _, err := Ipfs_cmd(cmd)
+	_, _, err := Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 	}
 	return fmt.Sprintf("%d%s%s", sucRet, separtor, "")
 }
 
-func Ipfs_publish(object_hash string) string {
+func Ipfs_publish(object_hash string, second int) string {
 	if len(object_hash) != hashLen+preLen {
 		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 	}
 
 	cmd := "ipfs name publish " + object_hash
 	fmt.Println(cmd)
-	res, hash, err := Ipfs_cmd(cmd)
+	res, hash, err := Ipfs_cmd_time(cmd, second)
 	if err != nil {
 		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
 	}
