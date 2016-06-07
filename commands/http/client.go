@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	config "github.com/ipfs/go-ipfs/repo/config"
@@ -29,6 +30,7 @@ var OptionSkipMap = map[string]bool{
 
 // Client is the commands HTTP client interface.
 type Client interface {
+	SetTimeOut(timeout time.Duration)
 	Send(req cmds.Request) (cmds.Response, error)
 }
 
@@ -49,6 +51,10 @@ func NewClient(address string) Client {
 			},
 		},
 	}
+}
+
+func (c *client) SetTimeOut(timeout time.Duration) {
+	c.httpClient.Timeout = timeout
 }
 
 func (c *client) Send(req cmds.Request) (cmds.Response, error) {

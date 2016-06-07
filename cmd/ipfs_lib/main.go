@@ -53,13 +53,14 @@ const (
 )
 
 type cmdInvocation struct {
-	path []string
-	cmd  *cmds.Command
-	req  cmds.Request
-	node *core.IpfsNode
+	path    []string
+	cmd     *cmds.Command
+	req     cmds.Request
+	timeout time.Duration
+	node    *core.IpfsNode
 }
 
-func Ipfs_cmd(cmd string) (int, string, error) {
+func Ipfs_cmd_time(cmd string, second int) (int, string, error) {
 	rand.Seed(time.Now().UnixNano())
 	runtime.GOMAXPROCS(3) // FIXME rm arbitrary choice for n
 
@@ -114,6 +115,7 @@ func Ipfs_cmd(cmd string) (int, string, error) {
 	// parse the commandline into a command invocation
 	//parseErr := invoc.Parse(ctx, os.Args[1:])
 	parseErr := invoc.Parse(ctx, args[1:])
+	invoc.timeout = time.Duration(second) * time.Second
 
 	// BEFORE handling the parse error, if we have enough information
 	// AND the user requested help, print it out and exit
@@ -186,6 +188,10 @@ func Ipfs_cmd(cmd string) (int, string, error) {
 	return 0, str, nil
 }
 
+func Ipfs_cmd(cmd string) (int, string, error) {
+	return Ipfs_cmd_time(cmd, 0)
+}
+
 func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
 
 	// check if user wants to debug. option OR env var.
@@ -201,7 +207,7 @@ func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
 		u.Debug = true
 	}
 
-	res, err := callCommand(ctx, i.req, Root, i.cmd)
+	res, err := callCommand(ctx, i.req, Root, i.cmd, i.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +314,7 @@ func callPreCommandHooks(ctx context.Context, details cmdDetails, req cmds.Reque
 	return nil
 }
 
-func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command) (cmds.Response, error) {
+func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command, timeout time.Duration) (cmds.Response, error) {
 	log.Info(config.EnvDir, " ", req.InvocContext().ConfigRoot)
 	var res cmds.Response
 
@@ -341,6 +347,7 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 
 	if client != nil && !cmd.External {
 		log.Debug("Executing command via API")
+		client.SetTimeOut(timeout)
 		res, err = client.Send(req)
 		if err != nil {
 			if isConnRefused(err) {
