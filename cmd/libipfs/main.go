@@ -394,19 +394,41 @@ func ipfs_publish(object_hash string, second int, out_res *C.char) int {
 	return len(hash)
 }
 
-//export ipfs_cmd
-func ipfs_cmd(cmd string, second int, out_res *C.char) int {
-	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
+//export ipfs_config
+func ipfs_config(key, value string, out_res *C.char) int {
+	var cmd string
+	if len(key) == 0 {
+		cmd = "ipfs config show"
+	} else if len(key) != 0 && len(value) == 0 {
+		cmd = "ipfs config " + key
+	} else {
+		cmd = "ipfs config " + key + " " + value
+	}
+
+	_, str, err := ipfs_lib.Ipfs_cmd(cmd)
+	if err != nil {
+		return errRet
+	}
 
 	str = strings.Trim(str, endsep)
 	cs := unsafe.Pointer(C.CString(str))
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
-	if err == nil {
-		return len(str)
-	} else {
+	return len(str)
+}
+
+//export ipfs_cmd
+func ipfs_cmd(cmd string, second int, out_res *C.char) int {
+	_, str, err := ipfs_lib.Ipfs_cmd_time(cmd, second)
+	if err != nil {
 		return errRet
 	}
+
+	str = strings.Trim(str, endsep)
+	cs := unsafe.Pointer(C.CString(str))
+	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+	C.free(cs)
+	return len(str)
 }
 
 // main roadmap:
