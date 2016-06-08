@@ -198,6 +198,10 @@ func parseOpts(args []string, root *cmds.Command) (
 			}
 
 		default:
+			if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") {
+				arg = arg[1:len(arg)-1]
+			}
+
 			// arg is a sub-command or a positional argument
 			sub := cmd.Subcommand(arg)
 			if sub != nil {

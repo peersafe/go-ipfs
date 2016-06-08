@@ -99,6 +99,10 @@ func ipfs_add(root_hash, ipfs_path, os_path string, second int, out_res *C.char)
 		}
 
 		fi, err := os.Lstat(os_path)
+		if err != nil {
+			return errRet
+		}
+
 		cmdSuff := ""
 		if fi.Mode().IsDir() {
 			cmdSuff = "ipfs add -r "
@@ -107,6 +111,7 @@ func ipfs_add(root_hash, ipfs_path, os_path string, second int, out_res *C.char)
 		} else {
 			return errRet
 		}
+
 		fmt.Println("add cmd", cmdSuff, os_path)
 		_, addHash, err = ipfs_lib.Ipfs_cmd_time(cmdSuff+os_path, second)
 		if err != nil {
