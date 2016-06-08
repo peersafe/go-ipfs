@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"runtime"
 )
 
 // Lock locks the given file, creating the file if necessary. If the
@@ -94,7 +95,7 @@ func isStaleLock(path string) bool {
 		return false
 	}
 	p, err := os.FindProcess(meta.OwnerPID)
-	if err != nil {
+	if err != nil || runtime.GOOS == "windows" {
 		// e.g. on Windows
 		return true
 	}
