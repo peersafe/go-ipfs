@@ -47,6 +47,24 @@ func Ipfs_daemon() string {
 	return fmt.Sprintf("%d%s%s", res, separtor, str)
 }
 
+func Ipfs_config(key, value string) string {
+	var cmd string
+	if len(key) == 0 {
+		cmd = "ipfs config show"
+	} else if len(key) != 0 && len(value) == 0 {
+		cmd = "ipfs config " + key
+	} else {
+		cmd = "ipfs config " + key + " " + value
+	}
+
+	res, str, err := Ipfs_cmd(cmd)
+	if err != nil {
+		return fmt.Sprintf("%d%s%s", errRet, separtor, "")
+	}
+
+	return fmt.Sprintf("%d%s%s", res, separtor, str)
+}
+
 func Ipfs_id() string {
 	cmd := "ipfs id"
 	res, str, _ := Ipfs_cmd(cmd)
