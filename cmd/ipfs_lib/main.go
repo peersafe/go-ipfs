@@ -60,7 +60,13 @@ type cmdInvocation struct {
 	node    *core.IpfsNode
 }
 
-func Ipfs_cmd_time(cmd string, second int) (int, string, error) {
+func Ipfs_cmd_time(cmd string, second int) (r int, s string, e error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+			r, s, e = 1, "", errors.New("Excption error!!!!!!!!!!!!")
+		}
+	}()
 	rand.Seed(time.Now().UnixNano())
 	runtime.GOMAXPROCS(3) // FIXME rm arbitrary choice for n
 
