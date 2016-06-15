@@ -16,6 +16,7 @@ import (
 	"github.com/ipfs/go-ipfs/repo/config"
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
+
 	cmds "github.com/ipfs/go-ipfs/commands"
 )
 
@@ -132,6 +133,11 @@ func (i internalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	if cn, ok := w.(http.CloseNotifier); ok {
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Println("panic CloseNotify()")
+				}
+			}()
 			select {
 			case <-cn.CloseNotify():
 			case <-ctx.Done():
