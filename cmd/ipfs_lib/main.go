@@ -60,7 +60,7 @@ type cmdInvocation struct {
 	node    *core.IpfsNode
 }
 
-func Ipfs_cmd_time(cmd string, second int) (r int, s string, e error) {
+func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
@@ -194,8 +194,8 @@ func Ipfs_cmd_time(cmd string, second int) (r int, s string, e error) {
 	return 0, str, nil
 }
 
-func Ipfs_cmd(cmd string) (int, string, error) {
-	return Ipfs_cmd_time(cmd, 0)
+func ipfsCmd(cmd string) (int, string, error) {
+	return ipfsCmdTime(cmd, 0)
 }
 
 func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
