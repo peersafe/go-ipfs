@@ -153,6 +153,7 @@ func ipfs_privkey(new_key string, second int, out_res *C.char) int {
 
 //export ipfs_publish
 func ipfs_publish(object_hash string, second int, out_res *C.char) int {
+	object_hash = "/ipfs/" + object_hash
 	if ret, str := ipfs_lib.IpfsPublish(object_hash, second); ret != errRet {
 		cs := unsafe.Pointer(C.CString(str))
 		C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))

@@ -248,7 +248,7 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 
 func IpfsGet(shard_hash, os_path string, second int) int {
 	if len(shard_hash) != hashLen+preLen {
-		fmt.Println("shard_hash len is not 49")
+		fmt.Println("shard_hash len is not 52")
 		return errRet
 	}
 	if len(os_path) == 0 {
@@ -407,12 +407,12 @@ func IpfsPrivkey(new_key string, second int) (int, string) {
 }
 
 func IpfsPublish(object_hash string, second int) (int, string) {
-	if len(object_hash) != hashLen {
-		fmt.Println("object_hash len is not 46")
+	if len(object_hash) != hashLen+preLen {
+		fmt.Println("object_hash len is not 52")
 		return errRet, ""
 	}
 
-	cmd := "ipfs name publish /ipfs/" + object_hash
+	cmd := "ipfs name publish " + object_hash
 	fmt.Println(cmd)
 	_, hash, err := ipfsCmdTime(cmd, second)
 	if err != nil {
