@@ -247,8 +247,8 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 }
 
 func IpfsGet(shard_hash, os_path string, second int) int {
-	if len(shard_hash) != hashLen {
-		fmt.Println("shard_hash len is not 46")
+	if len(shard_hash) != hashLen+preLen {
+		fmt.Println("shard_hash len is not 49")
 		return errRet
 	}
 	if len(os_path) == 0 {
