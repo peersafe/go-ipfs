@@ -103,7 +103,6 @@ func ipfs_shard(object_hash, shard_name string, second int, out_res *C.char) int
 
 //export ipfs_get
 func ipfs_get(shard_hash, os_path string, second int) int {
-	shard_hash = "/ipfs/" + shard_hash
 	return ipfs_lib.IpfsGet(shard_hash, os_path, second)
 }
 

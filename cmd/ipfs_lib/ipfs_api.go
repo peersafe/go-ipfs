@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -247,9 +248,14 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 }
 
 func IpfsGet(shard_hash, os_path string, second int) int {
-	if len(shard_hash) != hashLen+preLen {
-		fmt.Println("shard_hash len is not 52")
+	if matched, err := regexp.MatchString("((/ipfs/|/ipns/|peer://|addr://)?\\w{46})", shard_hash); !matched || err != nil {
+		fmt.Println("shard_hash format error")
 		return errRet
+	}
+	if strings.HasPrefix(shard_hash, "peer://") {
+		shard_hash = strings.Replace(shard_hash, "peer://", "/ipfs/", 1)
+	} else if strings.HasPrefix(shard_hash, "addr://") {
+		shard_hash = strings.Replace(shard_hash, "addr://", "/ipns/", 1)
 	}
 	if len(os_path) == 0 {
 		fmt.Println("shard_name len is 0")
