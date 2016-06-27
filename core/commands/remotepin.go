@@ -1,0 +1,157 @@
+package commands
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"reflect"
+	"time"
+
+	cmds "github.com/ipfs/go-ipfs/commands"
+	core "github.com/ipfs/go-ipfs/core"
+	peer "github.com/ipfs/go-ipfs/p2p/peer"
+	path "github.com/ipfs/go-ipfs/path"
+	u "github.com/ipfs/go-ipfs/util"
+
+	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+)
+
+const kRemotePinTimeout = 10 * time.Second
+
+type RemotePinResult struct {
+	Success bool
+	Text    string
+}
+
+var RemotePinCmd = &cmds.Command{
+	Helptext: cmds.HelpText{
+		Tagline: "notify given IPFS node,Pin specific objects to it's storage",
+		Synopsis: `
+AAAAAAAAA
+		`,
+		ShortDescription: `
+notify given <peer ID> IPFS node, Pin specific <ipfs path> object to it's local storage	
+		`,
+	},
+	Arguments: []cmds.Argument{
+		cmds.StringArg("peer ID", true, false, "ID of peer to be notify"),
+		cmds.StringArg("ipfs Path", true, false, "Path to object(s) to be pinned"),
+	},
+	Marshalers: cmds.MarshalerMap{
+		cmds.Text: func(res cmds.Response) (io.Reader, error) {
+			outChan, ok := res.Output().(<-chan interface{})
+			if !ok {
+				fmt.Println(reflect.TypeOf(res.Output()))
+				return nil, u.ErrCast()
+			}
+
+			marshal := func(v interface{}) (io.Reader, error) {
+				obj, ok := v.(*RemotePinResult)
+				if !ok {
+					return nil, u.ErrCast()
+				}
+
+				buf := new(bytes.Buffer)
+				if obj.Success {
+					fmt.Fprintf(buf, "time OKKK\nabc\n")
+					return buf, nil
+				} else {
+					return nil, fmt.Errorf("error: %s", obj.Text)
+				}
+			}
+
+			return &cmds.ChannelMarshaler{
+				Channel:   outChan,
+				Marshaler: marshal,
+				Res:       res,
+			}, nil
+		},
+	},
+	Run: func(req cmds.Request, res cmds.Response) {
+		ctx := req.Context()
+		n, err := req.InvocContext().GetNode()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		// Must be online!
+		if !n.OnlineMode() {
+			res.SetError(errNotOnline, cmds.ErrClient)
+			return
+		}
+
+		addr, peerID, err := ParsePeerParam(req.Arguments()[0])
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		if addr != nil {
+			n.Peerstore.AddAddr(peerID, addr, peer.TempAddrTTL) // temporary
+		}
+
+		path := path.Path(req.Arguments()[1])
+		if err := path.IsValid(); err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		outChan := remotePinPeer(ctx, n, peerID, path)
+		res.SetOutput(outChan)
+	},
+	Type: RemotePinResult{},
+}
+
+func remotePinPeer(ctx context.Context, n *core.IpfsNode, pid peer.ID, path path.Path) <-chan interface{} {
+	outChan := make(chan interface{})
+	go func() {
+		defer close(outChan)
+
+		// 添加需要通讯的节点到底层网络中
+		if len(n.Peerstore.Addrs(pid)) == 0 {
+			ctx, cancel := context.WithTimeout(ctx, kRemotePinTimeout)
+			defer cancel()
+			p, err := n.Routing.FindPeer(ctx, pid)
+			if err != nil {
+				outChan <- &RemotePinResult{
+					Success: false,
+					Text:    fmt.Sprintf("Peer lookup error: %s", err),
+				}
+				return
+			}
+			n.Peerstore.AddAddrs(p.ID, p.Addrs, peer.TempAddrTTL)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, kRemotePinTimeout)
+		defer cancel()
+		// TAG remotePin.remotePin
+		remotepin, err := n.Remotepin.Remotepin(ctx, pid, path)
+		if err != nil {
+			outChan <- &RemotePinResult{Success: false, Text: fmt.Sprintf("RemotePin error: %s", err)}
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			outChan <- &RemotePinResult{
+				Success: false,
+				Text:    fmt.Sprintf("OKKKKKKKKKKKKKK"),
+			}
+		case t, ok := <-remotepin:
+			if !ok {
+				outChan <- &RemotePinResult{
+					Success: false,
+					Text:    fmt.Sprintf("Remote node error: %s", ok),
+				}
+				break
+			}
+			outChan <- &RemotePinResult{
+				Success: true,
+				Text:    fmt.Sprintf("Time is %d", t),
+			}
+		}
+
+	}()
+	return outChan
+}
