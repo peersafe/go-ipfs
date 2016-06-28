@@ -162,6 +162,17 @@ func ipfs_publish(object_hash string, second int, out_res *C.char) int {
 	return errRet
 }
 
+//export ipfs_remotepin
+func ipfs_remotepin(remote_peer, object_hash string, second int, out_res *C.char) int {
+	if ret, str := ipfs_lib.IpfsRemotepin(remote_peer, object_hash, second); ret != errRet {
+		cs := unsafe.Pointer(C.CString(str))
+		C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+		C.free(cs)
+		return ret
+	}
+	return errRet
+}
+
 //export ipfs_config
 func ipfs_config(key, value string, out_res *C.char) int {
 	if ret, str := ipfs_lib.IpfsConfig(key, value); ret != errRet {
