@@ -12,12 +12,10 @@ import (
 )
 
 const (
-	preLen  int = 6
-	hashLen int = 46
-	keyLen  int = 1596
-	endsep      = "\n"
-	errRet      = -1
-	sucRet      = 0
+	keyLen int = 1596
+	endsep     = "\n"
+	errRet     = -1
+	sucRet     = 0
 )
 
 type statInfo struct {
@@ -61,7 +59,8 @@ func IpfsId(second int) (int, string) {
 }
 
 func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
-	if len(root_hash) != hashLen {
+	var err error
+	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
 		return errRet, ""
 	}
@@ -71,7 +70,7 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	ipfs_path, err := ipfsPathClean(ipfs_path)
+	ipfs_path, err = ipfsPathClean(ipfs_path)
 	if err != nil {
 		fmt.Println(err)
 		return errRet, ""
@@ -121,8 +120,9 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 }
 
 func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
-	if len(root_hash) != hashLen {
-		fmt.Println("root_hash len is not 46")
+	var err error
+	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
+		fmt.Println("root_hash len not 46")
 		return errRet, ""
 	}
 
@@ -131,7 +131,7 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	ipfs_path, err := ipfsPathClean(ipfs_path)
+	ipfs_path, err = ipfsPathClean(ipfs_path)
 	if err != nil {
 		fmt.Println(err)
 		return errRet, ""
@@ -150,8 +150,9 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
 }
 
 func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, string) {
-	if len(root_hash) != hashLen {
-		fmt.Println("root_hash len is not 46")
+	var err error
+	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
+		fmt.Println("root_hash len not 46")
 		return errRet, ""
 	}
 
@@ -160,7 +161,7 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 		return errRet, ""
 	}
 
-	ipfs_path_src, err := ipfsPathClean(ipfs_path_src)
+	ipfs_path_src, err = ipfsPathClean(ipfs_path_src)
 	if err != nil {
 		fmt.Println(err)
 		return errRet, ""
@@ -219,8 +220,9 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 }
 
 func IpfsShard(object_hash, shard_name string, second int) (int, string) {
-	if len(object_hash) != hashLen {
-		fmt.Println("object_hash len is not 46")
+	var err error
+	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
+		fmt.Println("object_hash len not 46")
 		return errRet, ""
 	}
 
@@ -229,7 +231,7 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	shard_name, err := ipfsPathClean(shard_name)
+	shard_name, err = ipfsPathClean(shard_name)
 	if err != nil {
 		fmt.Println(err)
 		return errRet, ""
@@ -248,21 +250,17 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 }
 
 func IpfsGet(shard_hash, os_path string, second int) int {
-	if matched, err := regexp.MatchString("((/ipfs/|/ipns/|peer://|addr://)?\\w{46})", shard_hash); !matched || err != nil {
+	var err error
+	if shard_hash, err = ipfsHashCheck(shard_hash); err != nil {
 		fmt.Println("shard_hash format error")
 		return errRet
-	}
-	if strings.HasPrefix(shard_hash, "peer://") {
-		shard_hash = strings.Replace(shard_hash, "peer://", "/ipfs/", 1)
-	} else if strings.HasPrefix(shard_hash, "addr://") {
-		shard_hash = strings.Replace(shard_hash, "addr://", "/ipns/", 1)
 	}
 	if len(os_path) == 0 {
 		fmt.Println("shard_name len is 0")
 		return errRet
 	}
 
-	os_path, err := filepath.Abs(path.Clean(os_path))
+	os_path, err = filepath.Abs(path.Clean(os_path))
 	if err != nil {
 		fmt.Println(err)
 		return errRet
@@ -279,8 +277,9 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 }
 
 func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
-	if len(object_hash) != hashLen {
-		fmt.Println("object_hash len is not 46")
+	var err error
+	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
+		fmt.Println("object_hash len not 46")
 		return errRet, ""
 	}
 
@@ -321,13 +320,13 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 }
 
 func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string) {
-	if len(root_hash) != hashLen {
-		fmt.Println("root_hash len is not 46")
+	var err error
+	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
+		fmt.Println("root_hash len not 46")
 		return errRet, ""
 	}
-
-	if len(shard_hash) != hashLen {
-		fmt.Println("shard_hash len is not 46")
+	if shard_hash, err = ipfsObjectHashCheck(shard_hash); err != nil {
+		fmt.Println("shard_hash len not 46")
 		return errRet, ""
 	}
 
@@ -336,7 +335,7 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 		return errRet, ""
 	}
 
-	ipfs_path, err := ipfsPathClean(ipfs_path)
+	ipfs_path, err = ipfsPathClean(ipfs_path)
 	if err != nil {
 		fmt.Println(err)
 		return errRet, ""
@@ -355,7 +354,7 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 }
 
 func IpfsPeerid(new_id string, second int) (int, string) {
-	if len(new_id) != hashLen && len(new_id) != 0 {
+	if err := ipfsPeeridCheck(new_id); len(new_id) != 0 && err != nil {
 		fmt.Println("new_id len is not 46 or is not 0")
 		return errRet, ""
 	}
@@ -368,7 +367,7 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	if len(new_id) == hashLen {
+	if len(new_id) != 0 {
 		cmd += " " + new_id
 		fmt.Println(cmd)
 		_, _, err := ipfsCmdTime(cmd, second)
@@ -397,7 +396,7 @@ func IpfsPrivkey(new_key string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	if len(new_key) == hashLen {
+	if len(new_key) != 0 {
 		cmd += " " + new_key
 		fmt.Println(cmd)
 		_, _, err := ipfsCmdTime(cmd, second)
@@ -413,7 +412,8 @@ func IpfsPrivkey(new_key string, second int) (int, string) {
 }
 
 func IpfsPublish(object_hash string, second int) (int, string) {
-	if len(object_hash) != hashLen+preLen {
+	var err error
+	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
 		fmt.Println("object_hash len is not 52")
 		return errRet, ""
 	}
@@ -472,4 +472,38 @@ func ipfsPathClean(ipfsPath string) (string, error) {
 		path = "\"" + path + "\""
 	}
 	return path, nil
+}
+
+func ipfsPeeridCheck(peerid string) error {
+	matchstr := "^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46}$"
+	if matched, err := regexp.MatchString(matchstr, peerid); !matched || err != nil {
+		return fmt.Errorf("invalid peerid format")
+	}
+	return nil
+}
+
+func ipfsObjectHashCheck(hash string) (string, error) {
+	matchstr := "^((/ipfs/|peer://)?" +
+		"[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46})$"
+	if matched, err := regexp.MatchString(matchstr, hash); !matched || err != nil {
+		return "", fmt.Errorf("hash format error")
+	}
+	if strings.HasPrefix(hash, "peer://") {
+		hash = strings.Replace(hash, "peer://", "/ipfs/", 1)
+	}
+	return hash, nil
+}
+
+func ipfsHashCheck(hash string) (string, error) {
+	matchstr := "^((/ipfs/|/ipns/|peer://|addr://)?" +
+		"[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46})$"
+	if matched, err := regexp.MatchString(matchstr, hash); !matched || err != nil {
+		return "", fmt.Errorf("hash format error")
+	}
+	if strings.HasPrefix(hash, "peer://") {
+		hash = strings.Replace(hash, "peer://", "/ipfs/", 1)
+	} else if strings.HasPrefix(hash, "addr://") {
+		hash = strings.Replace(hash, "addr://", "/ipns/", 1)
+	}
+	return hash, nil
 }
