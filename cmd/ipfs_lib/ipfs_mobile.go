@@ -91,3 +91,8 @@ func Ipfs_publish(object_hash string, second int) string {
 	res, str := IpfsPublish(object_hash, second)
 	return fmt.Sprintf("%d%s%s", res, separtor, str)
 }
+
+func Ipfs_remotepin(peer_id, object_hash string, second int) string {
+	res, str := IpfsRemotepin(peer_id, object_hash, second)
+	return fmt.Sprintf("%d%s%s", res, separtor, str)
+}
