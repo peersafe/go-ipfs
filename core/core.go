@@ -17,6 +17,7 @@ import (
 	"time"
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
+
 	b58 "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-base58"
 	ds "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore"
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
@@ -34,6 +35,7 @@ import (
 	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	ping "github.com/ipfs/go-ipfs/p2p/protocol/ping"
+	remotepin "github.com/ipfs/go-ipfs/p2p/protocol/remotepin"
 
 	routing "github.com/ipfs/go-ipfs/routing"
 	dht "github.com/ipfs/go-ipfs/routing/dht"
@@ -105,6 +107,7 @@ type IpfsNode struct {
 	Namesys      namesys.NameSystem  // the name system, resolves paths to hashes
 	Diagnostics  *diag.Diagnostics   // the diagnostics service
 	Ping         *ping.PingService
+	Remotepin    *remotepin.RemotepinService
 	Reprovider   *rp.Reprovider // the value reprovider system
 	IpnsRepub    *ipnsrp.Republisher
 
@@ -210,6 +213,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	// setup diagnostics service
 	n.Diagnostics = diag.NewDiagnostics(n.Identity, host)
 	n.Ping = ping.NewPingService(host)
+	n.Remotepin = remotepin.NewRemotepinService(host, n)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())
@@ -485,6 +489,31 @@ func (n *IpfsNode) SetupOfflineRouting() error {
 
 	n.Namesys = namesys.NewNameSystem(n.Routing, n.Repo.Datastore(), size)
 
+	return nil
+}
+
+func (n *IpfsNode) RemotePin(fpath string) error {
+	dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
+	if err != nil {
+		return fmt.Errorf("pin: %s", err)
+	}
+	_, err = dagnode.Key()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		ctx, cancel := context.WithCancel(n.Context())
+		defer cancel()
+		err = n.Pinning.Pin(ctx, dagnode, true)
+		if err != nil {
+			fmt.Println(">>>>>>>>>>>>>> pin: ", err)
+		}
+		err = n.Pinning.Flush()
+		if err != nil {
+			fmt.Println(">>>>>>>>>>>>>> flush: ", err)
+		}
+	}()
 	return nil
 }
 
