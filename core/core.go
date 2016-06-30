@@ -213,7 +213,13 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	// setup diagnostics service
 	n.Diagnostics = diag.NewDiagnostics(n.Identity, host)
 	n.Ping = ping.NewPingService(host)
-	n.Remotepin = remotepin.NewRemotepinService(host, n)
+
+	// get peer Secret from config
+	cfg, err := n.Repo.Config()
+	if err != nil {
+		return err
+	}
+	n.Remotepin = remotepin.NewRemotepinService(host, n, cfg.Identity.Secret)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())
