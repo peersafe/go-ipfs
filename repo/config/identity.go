@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/base64"
+
 	ic "github.com/ipfs/go-ipfs/p2p/crypto"
 )
 
@@ -9,6 +10,7 @@ import (
 type Identity struct {
 	PeerID  string
 	PrivKey string
+	Secret  string
 }
 
 // DecodePrivateKey is a helper to decode the users PrivateKey

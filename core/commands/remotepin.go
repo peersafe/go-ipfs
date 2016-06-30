@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"time"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
@@ -35,6 +36,7 @@ notify given <peer ID> IPFS node, Pin specific <ipfs path> object to it's local 
 	},
 	Arguments: []cmds.Argument{
 		cmds.StringArg("peer ID", true, false, "ID of peer to be notify"),
+		cmds.StringArg("peer KEY", true, false, "Password of peer to be notify"),
 		cmds.StringArg("ipfs Path", true, false, "Path to object(s) to be pinned"),
 	},
 	Marshalers: cmds.MarshalerMap{
@@ -53,11 +55,11 @@ notify given <peer ID> IPFS node, Pin specific <ipfs path> object to it's local 
 
 				buf := new(bytes.Buffer)
 				if obj.Success {
-					fmt.Fprintf(buf, "OK")
+					fmt.Fprintf(buf, "OK\n")
 					return buf, nil
 				} else {
 					fmt.Fprintf(buf, "FAIL")
-					return buf, fmt.Errorf("error: %s", obj.Text)
+					return buf, fmt.Errorf("%s", obj.Text)
 				}
 			}
 
@@ -92,19 +94,27 @@ notify given <peer ID> IPFS node, Pin specific <ipfs path> object to it's local 
 			n.Peerstore.AddAddr(peerID, addr, peer.TempAddrTTL) // temporary
 		}
 
-		path := path.Path(req.Arguments()[1])
+		key := req.Arguments()[1]
+		matchstr := "^[a-zA-Z0-9-`=\\\\\\[\\];'\",./~!@#$%^&*()_+|{}:<>?]{8}$"
+		if matched, err := regexp.MatchString(matchstr, key); err != nil || !matched {
+			err = fmt.Errorf("peer key format error")
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		path := path.Path(req.Arguments()[2])
 		if err := path.IsValid(); err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
 
-		outChan := remotePinPeer(ctx, n, peerID, path)
+		outChan := remotePinPeer(ctx, n, peerID, key, path)
 		res.SetOutput(outChan)
 	},
 	Type: RemotePinResult{},
 }
 
-func remotePinPeer(ctx context.Context, n *core.IpfsNode, pid peer.ID, path path.Path) <-chan interface{} {
+func remotePinPeer(ctx context.Context, n *core.IpfsNode, pid peer.ID, key string, path path.Path) <-chan interface{} {
 	outChan := make(chan interface{})
 	go func() {
 		defer close(outChan)
@@ -127,7 +137,7 @@ func remotePinPeer(ctx context.Context, n *core.IpfsNode, pid peer.ID, path path
 		ctx, cancel := context.WithTimeout(ctx, kRemotePinTimeout)
 		defer cancel()
 		// TAG remotePin.remotePin
-		remotepin, err := n.Remotepin.Remotepin(ctx, pid, path)
+		remotepin, err := n.Remotepin.Remotepin(ctx, pid, key, path)
 		if err != nil {
 			outChan <- &RemotePinResult{Success: false, Text: fmt.Sprintf("RemotePin error: %s", err)}
 			return
@@ -137,19 +147,25 @@ func remotePinPeer(ctx context.Context, n *core.IpfsNode, pid peer.ID, path path
 		case <-ctx.Done():
 			outChan <- &RemotePinResult{
 				Success: false,
-				Text:    fmt.Sprintf("OKKKKKKKKKKKKKK"),
+				Text:    fmt.Sprintf("Remote node error"),
 			}
-		case t, ok := <-remotepin:
+		case err, ok := <-remotepin:
 			if !ok {
 				outChan <- &RemotePinResult{
 					Success: false,
-					Text:    fmt.Sprintf("Remote node error: %s", ok),
+					Text:    fmt.Sprintf("Client error: remotepin chan is close"),
+				}
+				break
+			}
+			if err != nil {
+				outChan <- &RemotePinResult{
+					Success: false,
+					Text:    fmt.Sprint(err),
 				}
 				break
 			}
 			outChan <- &RemotePinResult{
 				Success: true,
-				Text:    fmt.Sprintf("Time is %d", t),
 			}
 		}
 
