@@ -2,13 +2,19 @@ package remotepin
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/md5"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
-	//corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 
@@ -21,36 +27,57 @@ import (
 
 var log = logging.Logger("remotepin")
 
-const RemotepinSize = 46 + 6 // /ipfs/....
-
 const ID = "/ipfs/remotepin"
 
 type RemotepinService struct {
 	Host        host.Host
 	LocalHandle localhandle.Remotepin
+	Secret      string
 }
 
-func NewRemotepinService(h host.Host, handler localhandle.Remotepin) *RemotepinService {
-	ps := &RemotepinService{h, handler}
+func NewRemotepinService(h host.Host, handler localhandle.Remotepin, key string) *RemotepinService {
+	ps := &RemotepinService{h, handler, key}
 	h.SetStreamHandler(ID, ps.RemotepinHandler)
 	return ps
 }
 
 func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
-	buf := make([]byte, RemotepinSize)
-
 	for {
-		_, err := io.ReadFull(s, buf)
+
+		slen := make([]byte, 1)
+		_, err := io.ReadFull(s, slen)
 		if err != nil {
 			log.Debug(err)
 			return
 		}
 
-		err = p.LocalHandle.RemotePin(string(buf))
+		len := int(slen[0])
+
+		rbuf := make([]byte, len)
+		_, err = io.ReadFull(s, rbuf)
 		if err != nil {
-			buffer := bytes.NewBuffer(buf)
-			buffer.WriteString("0")
-			buf = buffer.Bytes()
+			log.Debug(err)
+			return
+		}
+		md5hash_buf := rbuf[:md5.Size]
+		crypted := rbuf[md5.Size:]
+
+		var buf []byte = rbuf
+		orig, err := Decrypt(crypted, []byte(p.Secret))
+		if err != nil {
+			log.Debug(err)
+			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
+		} else {
+			md5hash := md5.Sum(orig)
+			if bytes.Equal(md5hash[:], md5hash_buf) {
+				path := PKCS5UnPadding(orig)
+				err = p.LocalHandle.RemotePin(string(path))
+				if err != nil {
+					buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
+				}
+			} else {
+				buf = PKCS5Padding([]byte(fmt.Sprint("Secret authentication failed")), len)
+			}
 		}
 
 		_, err = s.Write(buf)
@@ -61,27 +88,26 @@ func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 	}
 }
 
-func (ps *RemotepinService) Remotepin(ctx context.Context, p peer.ID, path path.Path) (<-chan time.Duration, error) {
+func (ps *RemotepinService) Remotepin(ctx context.Context, p peer.ID, key string, path path.Path) (<-chan error, error) {
 	s, err := ps.Host.NewStream(ID, p)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make(chan time.Duration)
+	out := make(chan error)
 	go func() {
 		defer close(out)
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			t, err := remotepin(s, path)
+			_, err := remotepin(s, key, path)
 			if err != nil {
 				log.Debugf("remotepin error: %s", err)
-				return
 			}
 
 			select {
-			case out <- t:
+			case out <- err:
 			case <-ctx.Done():
 				return
 			}
@@ -91,25 +117,119 @@ func (ps *RemotepinService) Remotepin(ctx context.Context, p peer.ID, path path.
 	return out, nil
 }
 
-func remotepin(s inet.Stream, path path.Path) (time.Duration, error) {
+func remotepin(s inet.Stream, key string, path path.Path) (time.Duration, error) {
 	before := time.Now()
 	if !strings.HasPrefix(string(path), "/ipfs/") {
 		path = "/ipfs/" + path
 	}
-	_, err := s.Write([]byte(path))
+
+	orig := PKCS5Padding([]byte(path), aes.BlockSize)
+	md5hash := md5.Sum(orig)
+	crypted, err := Encrypt(orig, []byte(key))
+	if err != nil {
+		return 0, err
+	}
+	buf := append(md5hash[:], crypted...)
+	buflen := len(buf)
+
+	slen := make([]byte, 1)
+	slen[0] = byte(buflen)
+	_, err = s.Write(slen)
 	if err != nil {
 		return 0, err
 	}
 
-	rbuf := make([]byte, RemotepinSize)
+	_, err = s.Write(buf)
+	if err != nil {
+		return 0, err
+	}
+
+	rbuf := make([]byte, buflen)
 	_, err = io.ReadFull(s, rbuf)
 	if err != nil {
 		return 0, err
 	}
 
-	if !bytes.Equal([]byte(path), rbuf) {
-		return 0, errors.New("remotepin packet was incorrect!")
+	if !bytes.Equal(buf, rbuf) {
+		str := PKCS5UnPadding(rbuf)
+		return 0, errors.New(string(str))
 	}
 
 	return time.Now().Sub(before), nil
+}
+
+func Encrypt(src, key []byte) ([]byte, error) {
+
+	bkey := sha256.Sum256(key)
+	block, err := aes.NewCipher(bkey[:])
+	if err != nil {
+		return nil, err
+	}
+
+	// 验证输入参数
+	// 必须为aes.Blocksize的倍数
+	if len(src)%aes.BlockSize != 0 {
+		return nil, errors.New("crypto/cipher: input not full blocks")
+	}
+
+	encryptText := make([]byte, aes.BlockSize+len(src))
+
+	iv := encryptText[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, err
+	}
+
+	mode := cipher.NewCBCEncrypter(block, iv)
+
+	mode.CryptBlocks(encryptText[aes.BlockSize:], src)
+
+	return encryptText, nil
+}
+
+// AES解密
+func Decrypt(src, key []byte) ([]byte, error) {
+
+	bkey := sha256.Sum256(key)
+	block, err := aes.NewCipher(bkey[:])
+	if err != nil {
+		return nil, err
+	}
+
+	// hex
+	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", string(src)))
+	if err != nil {
+		return nil, err
+	}
+
+	// 长度不能小于aes.Blocksize
+	if len(decryptText) < aes.BlockSize {
+		return nil, errors.New("crypto/cipher: ciphertext too short")
+	}
+
+	iv := decryptText[:aes.BlockSize]
+	decryptText = decryptText[aes.BlockSize:]
+
+	// 验证输入参数
+	// 必须为aes.Blocksize的倍数
+	if len(decryptText)%aes.BlockSize != 0 {
+		return nil, errors.New("crypto/cipher: ciphertext is not a multiple of the block size")
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+
+	mode.CryptBlocks(decryptText, decryptText)
+
+	return decryptText, nil
+}
+
+func PKCS5Padding(ciphertext []byte, blockSize int) []byte {
+	padding := blockSize - len(ciphertext)%blockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(ciphertext, padtext...)
+}
+
+func PKCS5UnPadding(origData []byte) []byte {
+	length := len(origData)
+	unpadding := int(origData[length-1])
+	return origData[:(length - unpadding)]
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 
 	ci "github.com/ipfs/go-ipfs/p2p/crypto"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
@@ -119,7 +120,15 @@ func identityConfig(out io.Writer, nbits int) (Identity, error) {
 		return ident, err
 	}
 	ident.PeerID = id.Pretty()
-	//fmt.Fprintf(out, "peer identity: %s\n", ident.PeerID)
 	fmt.Fprintf(out, "%s", ident.PeerID)
+
+	secretLen := 8
+	privKeyLen := len(ident.PrivKey)
+	bSecret := make([]byte, secretLen)
+	for i := 0; i < secretLen; i++ {
+		index := rand.Intn(privKeyLen)
+		bSecret[i] = ident.PrivKey[index]
+	}
+	ident.Secret = string(bSecret)
 	return ident, nil
 }
