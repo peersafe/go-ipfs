@@ -278,7 +278,7 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 
 func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	var err error
-	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
+	if object_hash, err = ipfsHashCheck(object_hash); err != nil {
 		fmt.Println("object_hash len not 46")
 		return errRet, ""
 	}
@@ -519,13 +519,13 @@ func ipfsPeeridCheck(peerid string) error {
 }
 
 func ipfsObjectHashCheck(hash string) (string, error) {
-	matchstr := "^((/ipfs/|peer://)?" +
+	matchstr := "^((/ipfs/|addr://)?" +
 		"[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46})$"
 	if matched, err := regexp.MatchString(matchstr, hash); err != nil || !matched {
 		return "", fmt.Errorf("hash format error")
 	}
-	if strings.HasPrefix(hash, "peer://") {
-		hash = strings.Replace(hash, "peer://", "/ipfs/", 1)
+	if strings.HasPrefix(hash, "addr://") {
+		hash = strings.Replace(hash, "addr://", "/ipfs/", 1)
 	}
 	return hash, nil
 }
@@ -537,9 +537,9 @@ func ipfsHashCheck(hash string) (string, error) {
 		return "", fmt.Errorf("hash format error")
 	}
 	if strings.HasPrefix(hash, "peer://") {
-		hash = strings.Replace(hash, "peer://", "/ipfs/", 1)
+		hash = strings.Replace(hash, "peer://", "/ipns/", 1)
 	} else if strings.HasPrefix(hash, "addr://") {
-		hash = strings.Replace(hash, "addr://", "/ipns/", 1)
+		hash = strings.Replace(hash, "addr://", "/ipfs/", 1)
 	}
 	return hash, nil
 }
