@@ -97,6 +97,11 @@ func Ipfs_remotepin(peer_id, peer_key, object_hash string, second int) string {
 	return fmt.Sprintf("%d%s%s", res, separtor, str)
 }
 
+func Ipfs_remotels(peer_id, peer_key, object_hash string, second int) string {
+	res, str := IpfsRemotels(peer_id, peer_key, object_hash, second)
+	return fmt.Sprintf("%d%s%s", res, separtor, str)
+}
+
 func Ipfs_connectpeer(remote_peer string, second int) string {
 	res, str := IpfsConnectPeer(remote_peer, second)
 	return fmt.Sprintf("%d%s%s", res, separtor, str)
