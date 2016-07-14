@@ -495,6 +495,34 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (int, stri
 	return len(str), str
 }
 
+func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (int, string) {
+	var err error
+	if err = ipfsPeeridCheck(peer_id); err != nil {
+		fmt.Println("peer_id len is not 46")
+		return errRet, ""
+	}
+	if err = ipfsPeerkeyCheck(peer_key); err != nil {
+		fmt.Println("peer_key len is not 8")
+		return errRet, ""
+	}
+	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
+		fmt.Println("object_hash format error")
+		return errRet, ""
+	}
+
+	cmd := "ipfs remotepin " + peer_id + " " + peer_key + " " + object_hash
+	fmt.Println(cmd)
+
+	_, str, err := ipfsCmdTime(cmd, second)
+	if err != nil {
+		fmt.Println(err)
+		return errRet, ""
+	}
+
+	str = strings.Trim(str, endsep)
+	return len(str), str
+}
+
 func IpfsCmdApi(cmd string, second int) (int, string) {
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
