@@ -33,8 +33,9 @@ import (
 	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	ping "github.com/ipfs/go-ipfs/p2p/protocol/ping"
-	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
+	remotels "github.com/ipfs/go-ipfs/p2p/protocol/remotels"
 	remotepin "github.com/ipfs/go-ipfs/p2p/protocol/remotepin"
+	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 
 	routing "github.com/ipfs/go-ipfs/routing"
 	dht "github.com/ipfs/go-ipfs/routing/dht"
@@ -107,6 +108,7 @@ type IpfsNode struct {
 	Diagnostics  *diag.Diagnostics   // the diagnostics service
 	Ping         *ping.PingService
 	Remotepin    *remotepin.RemotepinService
+	Remotels     *remotels.RemotelsService
 	Reprovider   *rp.Reprovider // the value reprovider system
 	IpnsRepub    *ipnsrp.Republisher
 
@@ -219,6 +221,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 		return err
 	}
 	n.Remotepin = remotepin.NewRemotepinService(host, n, cfg.Identity.Secret)
+	n.Remotels = remotels.NewRemotelsService(host, n, cfg.Identity.Secret)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())
@@ -493,6 +496,21 @@ func (n *IpfsNode) SetupOfflineRouting() error {
 	}
 
 	n.Namesys = namesys.NewNameSystem(n.Routing, n.Repo.Datastore(), size)
+
+	return nil
+}
+
+func (n *IpfsNode) RemoteLs(fpath string) error {
+	dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
+	if err != nil {
+		return fmt.Errorf("ls: %s", err)
+	}
+	for _, link := range dagnode.Links {
+		link.Node, err = link.GetNode(n.Context(), n.DAG)
+		if err != nil {
+			return fmt.Errorf("ls: %s", err)
+		}
+	}
 
 	return nil
 }

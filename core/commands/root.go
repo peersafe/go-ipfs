@@ -108,6 +108,7 @@ var rootSubcommands = map[string]*cmds.Command{
 	"object":    ObjectCmd,
 	"pin":       PinCmd,
 	"remotepin": RemotePinCmd,
+	"remotels":  RemoteLsCmd,
 	"ping":      PingCmd,
 	"refs":      RefsCmd,
 	"repo":      RepoCmd,
