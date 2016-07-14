@@ -430,6 +430,22 @@ func IpfsPublish(object_hash string, second int) (int, string) {
 	return len(hash), hash
 }
 
+func IpfsConnectPeer(peer_addr string, second int) (int, string) {
+	if len(peer_addr) == 0 {
+		fmt.Println("peer_addr len is 0")
+		return errRet, ""
+	}
+
+	cmd := "ipfs swarm connect " + peer_addr
+	_, str, err := ipfsCmdTime(cmd, second)
+	if err != nil {
+		fmt.Println(err)
+		return errRet, ""
+	}
+	str = strings.Trim(str, endsep)
+	return len(str), str
+}
+
 func IpfsConfig(key, value string) (int, string) {
 	var cmd string
 	if len(key) == 0 {
@@ -457,7 +473,7 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (int, stri
 		fmt.Println("peer_id len is not 46")
 		return errRet, ""
 	}
-	if err = ipfsPeerkeyCheckk(peer_key); err != nil {
+	if err = ipfsPeerkeyCheck(peer_key); err != nil {
 		fmt.Println("peer_key len is not 8")
 		return errRet, ""
 	}
@@ -502,8 +518,8 @@ func ipfsPathClean(ipfsPath string) (string, error) {
 	return path, nil
 }
 
-func ipfsPeerkeyCheckk(peerkey string) error {
-	matchstr := "^[a-zA-Z0-9-`=\\\\\\[\\];'\",./~!@#$%^&*()_+|{}:<>?]{8}"
+func ipfsPeerkeyCheck(peerkey string) error {
+	matchstr := "^[a-zA-Z0-9-`=\\\\\\[\\];'\",./~!@#$%^&*()_+|{}:<>?]{8}$"
 	if matched, err := regexp.MatchString(matchstr, peerkey); err != nil || !matched {
 		return fmt.Errorf("invalid peerkey format")
 	}
