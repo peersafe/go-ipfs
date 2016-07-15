@@ -383,10 +383,10 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 }
 
 func IpfsPrivkey(new_key string, second int) (int, string) {
-	if len(new_key) != keyLen && len(new_key) != 0 {
-		fmt.Println("new_id len is not 1596 or is not 0")
-		return errRet, ""
-	}
+	//	if len(new_key) != keyLen && len(new_key) != 0 {
+	//		fmt.Println("new_id len is not 1596 or is not 0")
+	//		return errRet, ""
+	//	}
 
 	cmd := "ipfs config Identity.PrivKey"
 	fmt.Println(cmd)
