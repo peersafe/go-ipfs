@@ -510,7 +510,7 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (int, strin
 		return errRet, ""
 	}
 
-	cmd := "ipfs remotepin " + peer_id + " " + peer_key + " " + object_hash
+	cmd := "ipfs remotels " + peer_id + " " + peer_key + " " + object_hash
 	fmt.Println(cmd)
 
 	_, str, err := ipfsCmdTime(cmd, second)
