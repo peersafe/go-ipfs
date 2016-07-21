@@ -73,6 +73,12 @@ func Init(out io.Writer, nBitsForKeypair int) (*Config, error) {
 			RootRedirect: "",
 			Writable:     false,
 		},
+		RemoteMultiplex: RemoteMultiplex{
+			Master:  false,
+			TryTime: DefaultTryTime,
+			Slave:   DefaultSlave,
+			MaxPin:  DefaultMaxPin,
+		},
 	}
 
 	return conf, nil
