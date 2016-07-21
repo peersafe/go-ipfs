@@ -14,6 +14,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	b58 "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-base58"
@@ -220,7 +223,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	if err != nil {
 		return err
 	}
-	n.Remotepin = remotepin.NewRemotepinService(host, n, cfg.Identity.Secret)
+	n.Remotepin = remotepin.NewRemotepinService(host, n, cfg.Identity.Secret, cfg.RemoteMultiplex)
 	n.Remotels = remotels.NewRemotelsService(host, n, cfg.Identity.Secret)
 
 	// setup routing service
@@ -500,6 +503,10 @@ func (n *IpfsNode) SetupOfflineRouting() error {
 	return nil
 }
 
+func (n *IpfsNode) GetPeerstore() peer.Peerstore {
+	return n.Peerstore
+}
+
 func (n *IpfsNode) RemoteLs(fpath string) error {
 	dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
 	if err != nil {
@@ -516,29 +523,54 @@ func (n *IpfsNode) RemoteLs(fpath string) error {
 }
 
 func (n *IpfsNode) RemotePin(fpath string) error {
-	dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
-	if err != nil {
-		return fmt.Errorf("pin: %s", err)
+	file, _ := exec.LookPath(os.Args[0])
+	path, _ := filepath.Abs(file)
+	log.Debugf("path [%s]", path)
+	log.Debugf("fpath [%s]", fpath)
+	cmd := exec.Cmd{
+		Path: path,
+		Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
 	}
-	_, err = dagnode.Key()
+	err := cmd.Run()
 	if err != nil {
-		return err
+		log.Debug(err)
 	}
-
-	go func() {
-		ctx, cancel := context.WithCancel(n.Context())
-		defer cancel()
-		err = n.Pinning.Pin(ctx, dagnode, true)
-		if err != nil {
-			fmt.Println(">>>>>>>>>>>>>> pin: ", err)
-		}
-		err = n.Pinning.Flush()
-		if err != nil {
-			fmt.Println(">>>>>>>>>>>>>> flush: ", err)
-		}
-	}()
 	return nil
 }
+
+// func (n *IpfsNode) RemotePin(fpath string) error {
+// 	file, _ := exec.LookPath(os.Args[0])
+// 	path, _ := filepath.Abs(file)
+// 	cmd := exec.Cmd{
+// 		Path: path,
+// 		Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
+// 	}
+// 	go func() {
+// 		cmd.Run()
+// 	}()
+// 	// dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
+// 	// if err != nil {
+// 	// 	return fmt.Errorf("pin: %s", err)
+// 	// }
+// 	// _, err = dagnode.Key()
+// 	// if err != nil {
+// 	// 	return err
+// 	// }
+
+// 	// go func() {
+// 	// 	ctx, cancel := context.WithCancel(n.Context())
+// 	// 	defer cancel()
+// 	// 	err = n.Pinning.Pin(ctx, dagnode, true)
+// 	// 	if err != nil {
+// 	// 		fmt.Println(">>>>>>>>>>>>>> pin: ", err)
+// 	// 	}
+// 	// 	err = n.Pinning.Flush()
+// 	// 	if err != nil {
+// 	// 		fmt.Println(">>>>>>>>>>>>>> flush: ", err)
+// 	// 	}
+// 	// }()
+// 	return nil
+// }
 
 func loadPrivateKey(cfg *config.Identity, id peer.ID) (ic.PrivKey, error) {
 	sk, err := cfg.DecodePrivateKey("passphrase todo!")
