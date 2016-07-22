@@ -14,13 +14,16 @@ import (
 	"strings"
 	"time"
 
+	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	iaddr "github.com/ipfs/go-ipfs/util/ipfsaddr"
 
 	localhandle "github.com/ipfs/go-ipfs/core/remotehandle"
 	host "github.com/ipfs/go-ipfs/p2p/host"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	path "github.com/ipfs/go-ipfs/path"
+	"github.com/ipfs/go-ipfs/repo/config"
 	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 )
 
@@ -29,20 +32,35 @@ var log = logging.Logger("remotepin")
 const ID = "/ipfs/remotepin"
 
 type RemotepinService struct {
-	Host        host.Host
-	LocalHandle localhandle.Remotepin
-	Secret      string
+	Host            host.Host
+	LocalHandle     localhandle.Remotepin
+	Secret          string
+	RemoteMultiplex config.RemoteMultiplex
+	currentPin      chan []string
+	pinQueue        chan string
 }
 
-func NewRemotepinService(h host.Host, handler localhandle.Remotepin, key string) *RemotepinService {
-	ps := &RemotepinService{h, handler, key}
+func NewRemotepinService(h host.Host, handler localhandle.Remotepin, key string, remu config.RemoteMultiplex) *RemotepinService {
+	if remu.MaxPin < 1 {
+		remu.MaxPin = 1
+	}
+	ps := &RemotepinService{Host: h, LocalHandle: handler, Secret: key, RemoteMultiplex: remu}
+	if remu.Master {
+		ps.currentPin = make(chan []string, len(remu.Slave))
+		for _, v := range ps.RemoteMultiplex.Slave {
+			ps.currentPin <- v
+		}
+		ps.pinQueue = make(chan string, 100)
+		go ps.Run()
+	} else {
+		ps.currentPin = make(chan []string, remu.MaxPin)
+	}
 	h.SetStreamHandler(ID, ps.RemotepinHandler)
 	return ps
 }
 
 func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 	for {
-
 		slen := make([]byte, 1)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
@@ -58,25 +76,16 @@ func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 			log.Debug(err)
 			return
 		}
-		md5hash_buf := rbuf[:md5.Size]
-		crypted := rbuf[md5.Size:]
 
 		var buf []byte = rbuf
-		orig, err := Decrypt(crypted, []byte(p.Secret))
+		path, err := p.DecryptRequest(rbuf)
 		if err != nil {
-			log.Debug(err)
 			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
-		} else {
-			md5hash := md5.Sum(orig)
-			if bytes.Equal(md5hash[:], md5hash_buf) {
-				path := PKCS5UnPadding(orig)
-				err = p.LocalHandle.RemotePin(string(path))
-				if err != nil {
-					buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
-				}
-			} else {
-				buf = PKCS5Padding([]byte(fmt.Sprint("Secret authentication failed")), len)
-			}
+		}
+
+		err = p.MultiplexRequest(string(path))
+		if err != nil {
+			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
 		}
 
 		_, err = s.Write(buf)
@@ -85,6 +94,112 @@ func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 			return
 		}
 	}
+}
+
+func (ps *RemotepinService) Run() {
+	tryMax := len(ps.currentPin)
+	tryTime := time.Duration(ps.RemoteMultiplex.TryTime) * time.Second
+	for {
+		fpath := <-ps.pinQueue
+		var tryNo = 0
+		for {
+			strPeer := <-ps.currentPin
+			tryNo++
+			err := ps.delay(strPeer, fpath)
+			if err != nil && err.Error() == "max pin" {
+				log.Debugf("[%s] delay [%s] max pin", fpath, strPeer)
+				if tryNo >= tryMax {
+					select {
+					case <-time.After(tryTime):
+					}
+					tryNo = 0
+				}
+				ps.currentPin <- strPeer
+			} else if err != nil {
+				ps.currentPin <- strPeer
+				log.Debugf("[%s] delay [%s] error [%s]", fpath, strPeer, err)
+			} else {
+				ps.currentPin <- strPeer
+				log.Debugf("[%s] delay [%s] success", fpath, strPeer)
+				break
+			}
+		}
+	}
+}
+
+func (p *RemotepinService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
+	md5hash_buf := buf[:md5.Size]
+	crypted := buf[md5.Size:]
+
+	orig, err := Decrypt(crypted, []byte(p.Secret))
+	if err != nil {
+		log.Debug(err)
+		return nil, err
+	}
+
+	md5hash := md5.Sum(orig)
+	if !bytes.Equal(md5hash[:], md5hash_buf) {
+		log.Debug("Secret authentication failed")
+		return nil, fmt.Errorf("Secret authentication failed")
+	}
+
+	rbuf = PKCS5UnPadding(orig)
+	return rbuf, nil
+}
+
+func (p *RemotepinService) MultiplexRequest(fpath string) error {
+	if p.RemoteMultiplex.Master { // local is master
+		log.Debug("local is master")
+		p.pinQueue <- fpath
+
+	} else { // local is slave
+		log.Debug("local is slave")
+		select {
+		case p.currentPin <- []string{}:
+			log.Debugf("current Pin go num [%d]", len(p.currentPin))
+		default:
+			return errors.New("max pin")
+		}
+
+		go func() {
+			defer func() {
+				<-p.currentPin
+			}()
+			p.LocalHandle.RemotePin(fpath)
+		}()
+	}
+
+	return nil
+}
+
+func (ps *RemotepinService) delay(peerInfo []string, fpath string) error {
+	addr, err := parseAddresses(peerInfo[0])
+	if err != nil {
+		return err
+	}
+
+	ps.Host.Network().ConnsToPeer(addr.ID())
+
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	key := peerInfo[1]
+
+	out, err := ps.Remotepin(ctx, addr.ID(), key, path.Path(fpath))
+	if err != nil {
+		return fmt.Errorf("routing remote error")
+	}
+
+	select {
+	case reerr := <-out:
+		if reerr != nil {
+			return reerr
+		}
+	case <-ctx.Done():
+		return fmt.Errorf("routing timeout")
+	}
+	return nil
 }
 
 func (ps *RemotepinService) Remotepin(ctx context.Context, p peer.ID, key string, path path.Path) (<-chan error, error) {
@@ -101,14 +216,9 @@ func (ps *RemotepinService) Remotepin(ctx context.Context, p peer.ID, key string
 			return
 		default:
 			_, err := remotepin(s, key, path)
-			if err != nil {
-				log.Debugf("remotepin error: %s", err)
-			}
-
 			select {
 			case out <- err:
 			case <-ctx.Done():
-				return
 			}
 		}
 	}()
@@ -155,6 +265,27 @@ func remotepin(s inet.Stream, key string, path path.Path) (time.Duration, error)
 	}
 
 	return time.Now().Sub(before), nil
+}
+
+func parseAddresses(addr string) (iaddrs iaddr.IPFSAddr, err error) {
+	iaddrs, err = iaddr.ParseString(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid peer address: " + err.Error())
+	}
+	return
+}
+
+func peersWithAddresses(addr string) (pis []peer.PeerInfo, err error) {
+	iaddr, err := parseAddresses(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	pis = append(pis, peer.PeerInfo{
+		ID:    iaddr.ID(),
+		Addrs: []ma.Multiaddr{iaddr.Transport()},
+	})
+	return pis, nil
 }
 
 func Encrypt(src, key []byte) ([]byte, error) {
