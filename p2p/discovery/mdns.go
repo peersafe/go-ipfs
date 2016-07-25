@@ -20,7 +20,7 @@ import (
 
 var log = logging.Logger("mdns")
 
-const ServiceTag = "discovery.ipfs.io"
+const ServiceTag = "discovery.peersafe.com"
 
 type Service interface {
 	io.Closer
