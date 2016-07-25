@@ -14,13 +14,14 @@ import (
 	manet "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr-net"
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
+
 	"github.com/ipfs/go-ipfs/p2p/host"
 	"github.com/ipfs/go-ipfs/p2p/peer"
 )
 
 var log = logging.Logger("mdns")
 
-const ServiceTag = "discovery.ipfs.io"
+const ServiceTag = "discovery.peersafe.com"
 
 type Service interface {
 	io.Closer
