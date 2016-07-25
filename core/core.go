@@ -38,6 +38,7 @@ import (
 	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	ping "github.com/ipfs/go-ipfs/p2p/protocol/ping"
+	relaypin "github.com/ipfs/go-ipfs/p2p/protocol/relaypin"
 	remotels "github.com/ipfs/go-ipfs/p2p/protocol/remotels"
 	remotepin "github.com/ipfs/go-ipfs/p2p/protocol/remotepin"
 
@@ -113,6 +114,7 @@ type IpfsNode struct {
 	Ping         *ping.PingService
 	Remotepin    *remotepin.RemotepinService
 	Remotels     *remotels.RemotelsService
+	Relaypin     *relaypin.RelaypinService
 	Reprovider   *rp.Reprovider // the value reprovider system
 	IpnsRepub    *ipnsrp.Republisher
 
@@ -226,6 +228,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	}
 	n.Remotepin = remotepin.NewRemotepinService(host, n, cfg.Identity.Secret, cfg.RemoteMultiplex)
 	n.Remotels = remotels.NewRemotelsService(host, n, cfg.Identity.Secret)
+	n.Relaypin = relaypin.NewRelaypinService(host, cfg.Identity.Secret)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())
