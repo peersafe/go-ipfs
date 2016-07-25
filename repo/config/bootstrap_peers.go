@@ -14,15 +14,14 @@ import (
 // Note: this is here -- and not inside cmd/ipfs/init.go -- because of an
 // import dependency issue. TODO: move this into a config/default/ package.
 var DefaultBootstrapAddresses = []string{
-	"/ip4/104.131.131.82/tcp/4001/ipfs/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",  // mars.i.ipfs.io
-	"/ip4/104.236.176.52/tcp/4001/ipfs/QmSoLnSGccFuZQJzRadHn95W2CrSFmZuTdDWP8HXaHca9z",  // neptune.i.ipfs.io
-	"/ip4/104.236.179.241/tcp/4001/ipfs/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM", // pluto.i.ipfs.io
-	"/ip4/162.243.248.213/tcp/4001/ipfs/QmSoLueR4xBeUbY9WZ9xGUUxunbKWcrNFTDAadQJmocnWm", // uranus.i.ipfs.io
-	"/ip4/128.199.219.111/tcp/4001/ipfs/QmSoLSafTMBsPKadTEgaXctDQVcqN88CNLHXMkTNwMKPnu", // saturn.i.ipfs.io
-	"/ip4/104.236.76.40/tcp/4001/ipfs/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",   // venus.i.ipfs.io
-	"/ip4/178.62.158.247/tcp/4001/ipfs/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd",  // earth.i.ipfs.io
-	"/ip4/178.62.61.185/tcp/4001/ipfs/QmSoLMeWqB7YGVLJN3pNLQpmmEk35v6wYtsMGLzSr5QBU3",   // mercury.i.ipfs.io
-	"/ip4/104.236.151.122/tcp/4001/ipfs/QmSoLju6m7xTh3DuokvT3886QRYqxAzb1kShaanJgW36yx", // jupiter.i.ipfs.io
+	"/ip4/101.201.40.124/tcp/4001/ipfs/QmZDYAhmMDtnoC6XZRw8R1swgoshxKvXDA9oQF97AYkPZc",
+	"/ip4/108.61.161.202/tcp/4001/ipfs/QmaXZQYJeFTyytgdMpguU3CFtTj82EX6CEYyNoRakFqqkJ",
+	"/ip4/139.129.99.7/tcp/4001/ipfs/QmcwRr8wfdtQTru2R3L2cx6BZBxdVpBgRfEULQQRmwRJtK",
+	"/ip4/115.159.105.185/tcp/4001/ipfs/QmPkFbxAQ7DeKD5VGSh9HQrdS574pyNzDmxJeGrRJxoucF",
+	"/ip4/119.29.67.136/tcp/4001/ipfs/QmTGkgHSsULk8p3AKTAqKixxidZQXFyF7mCURcutPqrwjQ",
+	"/ip4/45.32.70.172/tcp/4001/ipfs/QmZYf9EUMYk9V2DTBpoJRmSotFRPxQPdozj8CXtYPvXDyU",
+	"/ip4/101.201.220.73/tcp/4001/ipfs/QmeVGtbVRrz4m6ioPQfqimgiSQFpiGibF5tmbsxGW95Gdm",
+	"/ip4/219.223.222.4/tcp/4001/ipfs/Qmf96ojxn2i8QPZ83FbutnwGjffEXsV4VaoFGzuC3YEwwY",
 }
 
 // BootstrapPeer is a peer used to bootstrap the network.
