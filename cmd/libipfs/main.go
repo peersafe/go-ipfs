@@ -173,6 +173,17 @@ func ipfs_remotepin(remote_peer, peer_key, object_hash string, second int, out_r
 	return errRet
 }
 
+//export ipfs_relaypin
+func ipfs_relaypin(relay_peer, relay_key, remote_peer, peer_key, object_hash string, second int, out_res *C.char) int {
+	if ret, str := ipfs_lib.IpfsRelaypin(relay_peer, relay_key, remote_peer, peer_key, object_hash, second); ret != errRet {
+		cs := unsafe.Pointer(C.CString(str))
+		C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
+		C.free(cs)
+		return ret
+	}
+	return errRet
+}
+
 //export ipfs_remotels
 func ipfs_remotels(remote_peer, peer_key, object_hash string, second int, out_res *C.char) int {
 	if ret, str := ipfs_lib.IpfsRemotels(remote_peer, peer_key, object_hash, second); ret != errRet {
