@@ -11,6 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,7 +23,6 @@ import (
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 
-	localhandle "github.com/ipfs/go-ipfs/core/remotehandle"
 	host "github.com/ipfs/go-ipfs/p2p/host"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
@@ -34,18 +36,17 @@ const ID = "/ipfs/remotepin"
 
 type RemotepinService struct {
 	Host            host.Host
-	LocalHandle     localhandle.Remotepin
 	Secret          string
 	RemoteMultiplex config.RemoteMultiplex
 	currentPin      chan []string
 	pinQueue        chan string
 }
 
-func NewRemotepinService(h host.Host, handler localhandle.Remotepin, key string, remu config.RemoteMultiplex) *RemotepinService {
+func NewRemotepinService(h host.Host, key string, remu config.RemoteMultiplex) *RemotepinService {
 	if remu.MaxPin < 1 {
 		remu.MaxPin = 1
 	}
-	ps := &RemotepinService{Host: h, LocalHandle: handler, Secret: key, RemoteMultiplex: remu}
+	ps := &RemotepinService{Host: h, Secret: key, RemoteMultiplex: remu}
 	if remu.Master {
 		ps.currentPin = make(chan []string, len(remu.Slave))
 		for _, v := range ps.RemoteMultiplex.Slave {
@@ -166,10 +167,26 @@ func (p *RemotepinService) MultiplexRequest(fpath string) error {
 			defer func() {
 				<-p.currentPin
 			}()
-			p.LocalHandle.RemotePin(fpath)
+			p.remotePin(fpath)
 		}()
 	}
 
+	return nil
+}
+
+func (ps *RemotepinService) remotePin(fpath string) error {
+	file, _ := exec.LookPath(os.Args[0])
+	path, _ := filepath.Abs(file)
+	log.Debugf("path [%s]", path)
+	log.Debugf("fpath [%s]", fpath)
+	cmd := exec.Cmd{
+		Path: path,
+		Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
+	}
+	err := cmd.Run()
+	if err != nil {
+		log.Debug(err)
+	}
 	return nil
 }
 

@@ -11,6 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,7 +21,6 @@ import (
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 
-	localhandle "github.com/ipfs/go-ipfs/core/remotehandle"
 	host "github.com/ipfs/go-ipfs/p2p/host"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
@@ -30,13 +32,12 @@ var log = logging.Logger("remotels")
 const ID = "/ipfs/remotels"
 
 type RemotelsService struct {
-	Host        host.Host
-	LocalHandle localhandle.Remotels
-	Secret      string
+	Host   host.Host
+	Secret string
 }
 
-func NewRemotelsService(h host.Host, handler localhandle.Remotels, key string) *RemotelsService {
-	ps := &RemotelsService{h, handler, key}
+func NewRemotelsService(h host.Host, key string) *RemotelsService {
+	ps := &RemotelsService{h, key}
 	h.SetStreamHandler(ID, ps.RemotelsHandler)
 	return ps
 }
@@ -59,25 +60,16 @@ func (p *RemotelsService) RemotelsHandler(s inet.Stream) {
 			log.Debug(err)
 			return
 		}
-		md5hash_buf := rbuf[:md5.Size]
-		crypted := rbuf[md5.Size:]
 
 		var buf []byte = rbuf
-		orig, err := Decrypt(crypted, []byte(p.Secret))
+		path, err := p.DecryptRequest(rbuf)
 		if err != nil {
-			log.Debug(err)
 			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
-		} else {
-			md5hash := md5.Sum(orig)
-			if bytes.Equal(md5hash[:], md5hash_buf) {
-				path := PKCS5UnPadding(orig)
-				err = p.LocalHandle.RemoteLs(string(path))
-				if err != nil {
-					buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
-				}
-			} else {
-				buf = PKCS5Padding([]byte(fmt.Sprint("Secret authentication failed")), len)
-			}
+		}
+
+		err = p.remoteLs(string(path))
+		if err != nil {
+			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
 		}
 
 		_, err = s.Write(buf)
@@ -86,6 +78,43 @@ func (p *RemotelsService) RemotelsHandler(s inet.Stream) {
 			return
 		}
 	}
+}
+
+func (p *RemotelsService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
+	md5hash_buf := buf[:md5.Size]
+	crypted := buf[md5.Size:]
+
+	orig, err := Decrypt(crypted, []byte(p.Secret))
+	if err != nil {
+		log.Debug(err)
+		return nil, err
+	}
+
+	md5hash := md5.Sum(orig)
+	if !bytes.Equal(md5hash[:], md5hash_buf) {
+		log.Debug("Secret authentication failed")
+		return nil, fmt.Errorf("Secret authentication failed")
+	}
+
+	rbuf = PKCS5UnPadding(orig)
+	return rbuf, nil
+}
+
+func (ps *RemotelsService) remoteLs(fpath string) error {
+	go func() {
+		file, _ := exec.LookPath(os.Args[0])
+		path, _ := filepath.Abs(file)
+		cmd := exec.Cmd{
+			Path: path,
+			Args: []string{"ipfs", "ls", fpath},
+		}
+		err := cmd.Run()
+		if err != nil {
+			log.Debug(err)
+		}
+
+	}()
+	return nil
 }
 
 func (ps *RemotelsService) Remotels(ctx context.Context, p peer.ID, key string, path path.Path) (<-chan error, error) {

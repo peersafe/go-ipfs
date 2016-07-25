@@ -14,9 +14,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"time"
 
 	logging "QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
@@ -226,8 +223,8 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	if err != nil {
 		return err
 	}
-	n.Remotepin = remotepin.NewRemotepinService(host, n, cfg.Identity.Secret, cfg.RemoteMultiplex)
-	n.Remotels = remotels.NewRemotelsService(host, n, cfg.Identity.Secret)
+	n.Remotepin = remotepin.NewRemotepinService(host, cfg.Identity.Secret, cfg.RemoteMultiplex)
+	n.Remotels = remotels.NewRemotelsService(host, cfg.Identity.Secret)
 	n.Relaypin = relaypin.NewRelaypinService(host, cfg.Identity.Secret)
 
 	// setup routing service
@@ -510,71 +507,6 @@ func (n *IpfsNode) SetupOfflineRouting() error {
 func (n *IpfsNode) GetPeerstore() peer.Peerstore {
 	return n.Peerstore
 }
-
-func (n *IpfsNode) RemoteLs(fpath string) error {
-	dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
-	if err != nil {
-		return fmt.Errorf("ls: %s", err)
-	}
-	for _, link := range dagnode.Links {
-		link.Node, err = link.GetNode(n.Context(), n.DAG)
-		if err != nil {
-			return fmt.Errorf("ls: %s", err)
-		}
-	}
-
-	return nil
-}
-
-func (n *IpfsNode) RemotePin(fpath string) error {
-	file, _ := exec.LookPath(os.Args[0])
-	path, _ := filepath.Abs(file)
-	log.Debugf("path [%s]", path)
-	log.Debugf("fpath [%s]", fpath)
-	cmd := exec.Cmd{
-		Path: path,
-		Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
-	}
-	err := cmd.Run()
-	if err != nil {
-		log.Debug(err)
-	}
-	return nil
-}
-
-// func (n *IpfsNode) RemotePin(fpath string) error {
-// 	file, _ := exec.LookPath(os.Args[0])
-// 	path, _ := filepath.Abs(file)
-// 	cmd := exec.Cmd{
-// 		Path: path,
-// 		Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
-// 	}
-// 	go func() {
-// 		cmd.Run()
-// 	}()
-// 	// dagnode, err := Resolve(n.Context(), n, path.Path(fpath))
-// 	// if err != nil {
-// 	// 	return fmt.Errorf("pin: %s", err)
-// 	// }
-// 	// _, err = dagnode.Key()
-// 	// if err != nil {
-// 	// 	return err
-// 	// }
-
-// 	// go func() {
-// 	// 	ctx, cancel := context.WithCancel(n.Context())
-// 	// 	defer cancel()
-// 	// 	err = n.Pinning.Pin(ctx, dagnode, true)
-// 	// 	if err != nil {
-// 	// 		fmt.Println(">>>>>>>>>>>>>> pin: ", err)
-// 	// 	}
-// 	// 	err = n.Pinning.Flush()
-// 	// 	if err != nil {
-// 	// 		fmt.Println(">>>>>>>>>>>>>> flush: ", err)
-// 	// 	}
-// 	// }()
-// 	return nil
-// }
 
 func loadPrivateKey(cfg *config.Identity, id peer.ID) (ic.PrivKey, error) {
 	sk, err := cfg.DecodePrivateKey("passphrase todo!")
