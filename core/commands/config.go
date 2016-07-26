@@ -9,13 +9,15 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
+
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	repo "github.com/ipfs/go-ipfs/repo"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 )
 
 type ConfigField struct {
@@ -90,6 +92,14 @@ Set the value of the 'datastore.path' key:
 			} else if isbool, _, _ := req.Option("bool").Bool(); isbool {
 				output, err = setConfig(r, key, value == "true")
 			} else {
+				if key == "Identity.Secret" {
+					matchstr := "^[a-zA-Z0-9-`=\\\\\\[\\];'\",./~!@#$%^&*()_+|{}:<>?]{8}$"
+					if matched, err := regexp.MatchString(matchstr, value); err != nil || !matched {
+						err = fmt.Errorf("Identity.Secret format error")
+						res.SetError(err, cmds.ErrNormal)
+						return
+					}
+				}
 				output, err = setConfig(r, key, value)
 			}
 		} else {

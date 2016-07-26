@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
+
+	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 )
 
 var log = logging.Logger("config")
@@ -29,6 +30,7 @@ type Config struct {
 	SupernodeRouting SupernodeClientConfig // local node's routing servers (if SupernodeRouting enabled)
 	API              API                   // local node's API settings
 	Swarm            SwarmConfig
+	RemoteMultiplex  RemoteMultiplex
 }
 
 const (

@@ -16,7 +16,6 @@ import (
 	"net"
 	"time"
 
-	diag "github.com/ipfs/go-ipfs/diagnostics"
 	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
 	pstore "gx/ipfs/QmQdnfvZQuhdT93LNc5bos52wAmdr3G2p6G8teLJMEN32P/go-libp2p-peerstore"
 	goprocess "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess"
@@ -36,6 +35,8 @@ import (
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 	ds "gx/ipfs/QmfQzVugPq1w5shWRcLWSeiHF4a2meBX7yVD8Vw7GWJM9o/go-datastore"
 
+	diag "github.com/ipfs/go-ipfs/diagnostics"
+
 	routing "github.com/ipfs/go-ipfs/routing"
 	dht "github.com/ipfs/go-ipfs/routing/dht"
 	nilrouting "github.com/ipfs/go-ipfs/routing/none"
@@ -49,6 +50,9 @@ import (
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
 	rp "github.com/ipfs/go-ipfs/exchange/reprovide"
 	mfs "github.com/ipfs/go-ipfs/mfs"
+	remotepin "github.com/ipfs/go-ipfs/remotecmd/remotepin"
+
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 
 	mount "github.com/ipfs/go-ipfs/fuse/mount"
 	merkledag "github.com/ipfs/go-ipfs/merkledag"
@@ -59,7 +63,6 @@ import (
 	repo "github.com/ipfs/go-ipfs/repo"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	uio "github.com/ipfs/go-ipfs/unixfs/io"
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 )
 
 const IpnsValidatorTag = "ipns"
@@ -111,6 +114,7 @@ type IpfsNode struct {
 	Ping         *ping.PingService
 	Reprovider   *rp.Reprovider // the value reprovider system
 	IpnsRepub    *ipnsrp.Republisher
+	Remotepin    *remotepin.RemotepinService
 
 	proc goprocess.Process
 	ctx  context.Context
@@ -212,6 +216,12 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	// setup diagnostics service
 	n.Diagnostics = diag.NewDiagnostics(n.Identity, host)
 	n.Ping = ping.NewPingService(host)
+
+	cfg, err := n.Repo.Config()
+	if err != nil {
+		return err
+	}
+	n.Remotepin = remotepin.NewRemotepinService(host, cfg.Identity.Secret, cfg.RemoteMultiplex)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())

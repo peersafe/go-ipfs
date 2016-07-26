@@ -4,11 +4,12 @@ import (
 	"io"
 	"strings"
 
+	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
+
 	cmds "github.com/ipfs/go-ipfs/commands"
 	files "github.com/ipfs/go-ipfs/core/commands/files"
 	ocmd "github.com/ipfs/go-ipfs/core/commands/object"
 	unixfs "github.com/ipfs/go-ipfs/core/commands/unixfs"
-	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
 )
 
 var log = logging.Logger("core/commands")
@@ -110,6 +111,7 @@ var rootSubcommands = map[string]*cmds.Command{
 	"update":    ExternalBinary(),
 	"version":   VersionCmd,
 	"bitswap":   BitswapCmd,
+	"remotepin": RemotePinCmd,
 }
 
 // RootRO is the readonly version of Root

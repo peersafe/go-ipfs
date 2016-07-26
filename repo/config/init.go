@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 
 	peer "gx/ipfs/QmRBqJF7hb8ZSpRcMwUt8hNhydWcxGEhtk81HKq6oUwKvs/go-libp2p-peer"
 	ci "gx/ipfs/QmUWER4r4qMvaCnX5zREcfyiWN7cXN9g3a7fkRqNz8qWPP/go-libp2p-crypto"
@@ -68,6 +69,12 @@ func Init(out io.Writer, nBitsForKeypair int) (*Config, error) {
 				"Access-Control-Allow-Headers": []string{"X-Requested-With"},
 			},
 		},
+		RemoteMultiplex: RemoteMultiplex{
+			Master:  false,
+			TryTime: DefaultTryTime,
+			Slave:   DefaultSlave,
+			MaxPin:  DefaultMaxPin,
+		},
 	}
 
 	return conf, nil
@@ -118,5 +125,15 @@ func identityConfig(out io.Writer, nbits int) (Identity, error) {
 	}
 	ident.PeerID = id.Pretty()
 	fmt.Fprintf(out, "peer identity: %s\n", ident.PeerID)
+
+	secretLen := 8
+	privKeyLen := len(ident.PrivKey)
+	bSecret := make([]byte, secretLen)
+	for i := 0; i < secretLen; i++ {
+		index := rand.Intn(privKeyLen)
+		bSecret[i] = ident.PrivKey[index]
+	}
+	ident.Secret = string(bSecret)
+
 	return ident, nil
 }
