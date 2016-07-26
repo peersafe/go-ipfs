@@ -9,6 +9,7 @@ import (
 type Identity struct {
 	PeerID  string
 	PrivKey string `json:",omitempty"`
+	Secret  string
 }
 
 // DecodePrivateKey is a helper to decode the users PrivateKey
