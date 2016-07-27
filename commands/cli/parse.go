@@ -9,10 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	cmds "github.com/ipfs/go-ipfs/commands"
-	files "github.com/ipfs/go-ipfs/commands/files"
 	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
 	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
+
+	cmds "github.com/ipfs/go-ipfs/commands"
+	files "github.com/ipfs/go-ipfs/commands/files"
 )
 
 var log = logging.Logger("commands/cli")
@@ -221,6 +222,10 @@ func parseOpts(args []string, root *cmds.Command) (
 			}
 
 		default:
+			if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") {
+				arg = arg[1 : len(arg)-1]
+			}
+
 			// arg is a sub-command or a positional argument
 			sub := cmd.Subcommand(arg)
 			if sub != nil {
