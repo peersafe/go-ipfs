@@ -50,6 +50,7 @@ import (
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
 	rp "github.com/ipfs/go-ipfs/exchange/reprovide"
 	mfs "github.com/ipfs/go-ipfs/mfs"
+	remotels "github.com/ipfs/go-ipfs/remotecmd/remotels"
 	remotepin "github.com/ipfs/go-ipfs/remotecmd/remotepin"
 
 	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
@@ -115,6 +116,7 @@ type IpfsNode struct {
 	Reprovider   *rp.Reprovider // the value reprovider system
 	IpnsRepub    *ipnsrp.Republisher
 	Remotepin    *remotepin.RemotepinService
+	Remotels     *remotels.RemotelsService
 
 	proc goprocess.Process
 	ctx  context.Context
@@ -222,6 +224,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 		return err
 	}
 	n.Remotepin = remotepin.NewRemotepinService(host, cfg.Identity.Secret, cfg.RemoteMultiplex)
+	n.Remotels = remotels.NewRemotelsService(host, cfg.Identity.Secret)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())
