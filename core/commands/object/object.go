@@ -25,6 +25,7 @@ import (
 var ErrObjectTooLarge = errors.New("input object was too large. limit is 2mbytes")
 
 const inputLimit = 2 << 20
+const islibOptionName = "is-lib"
 
 type Node struct {
 	Links []Link
@@ -248,7 +249,16 @@ var ObjectStatCmd = &cmds.Command{
 	Arguments: []cmds.Argument{
 		cmds.StringArg("key", true, false, "Key of the object to retrieve, in base58-encoded multihash format.").EnableStdin(),
 	},
+	Options: []cmds.Option{
+		cmds.BoolOption(islibOptionName, "Is for lib").Default(false),
+	},
 	Run: func(req cmds.Request, res cmds.Response) {
+
+		if _, _, err := req.Option(islibOptionName).Bool(); err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
@@ -274,17 +284,25 @@ var ObjectStatCmd = &cmds.Command{
 	Type: dag.NodeStat{},
 	Marshalers: cmds.MarshalerMap{
 		cmds.Text: func(res cmds.Response) (io.Reader, error) {
-			ns := res.Output().(*dag.NodeStat)
 
+			islib, _, _ := res.Request().Option(islibOptionName).Bool()
+
+			ns := res.Output().(*dag.NodeStat)
 			buf := new(bytes.Buffer)
-			w := func(s string, n int) {
-				fmt.Fprintf(buf, "%s: %d\n", s, n)
+
+			if islib {
+				enc := json.NewEncoder(buf)
+				enc.Encode(ns)
+			} else {
+				w := func(s string, n int) {
+					fmt.Fprintf(buf, "%s: %d\n", s, n)
+				}
+				w("NumLinks", ns.NumLinks)
+				w("BlockSize", ns.BlockSize)
+				w("LinksSize", ns.LinksSize)
+				w("DataSize", ns.DataSize)
+				w("CumulativeSize", ns.CumulativeSize)
 			}
-			w("NumLinks", ns.NumLinks)
-			w("BlockSize", ns.BlockSize)
-			w("LinksSize", ns.LinksSize)
-			w("DataSize", ns.DataSize)
-			w("CumulativeSize", ns.CumulativeSize)
 
 			return buf, nil
 		},

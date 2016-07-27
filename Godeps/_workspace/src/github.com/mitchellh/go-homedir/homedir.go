@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var Home_Unix_Dir = ""
+
 // Dir returns the home directory for the executing user.
 //
 // This uses an OS-specific method for discovering the home directory.

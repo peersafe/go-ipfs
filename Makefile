@@ -57,6 +57,11 @@ deps: go_check gx_check path_check
 vendor: godep
 	godep save -r ./...
 
+ipfs_lib:
+	mkdir cmd/ipfs_lib
+	cp cmd/ipfs/*.go cmd/ipfs_lib
+	cp cmd/ipfs/Makefile cmd/ipfs_lib
+
 install: deps
 	make -C cmd/ipfs install
 
@@ -73,7 +78,7 @@ uninstall:
 	make -C cmd/ipfs uninstall
 
 PHONY += all help godep gx_check
-PHONY += go_check deps vendor install build nofuse clean uninstall
+PHONY += go_check deps vendor ipfs_lib install build nofuse clean uninstall
 
 ##############################################################
 # tests targets
