@@ -10,11 +10,12 @@ import (
 	"strconv"
 	"time"
 
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
+	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+
 	"github.com/ipfs/go-ipfs/commands/files"
 	"github.com/ipfs/go-ipfs/core"
 	"github.com/ipfs/go-ipfs/repo/config"
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
-	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 )
 
 type OptMap map[string]interface{}
@@ -83,6 +84,7 @@ type Request interface {
 	Values() map[string]interface{}
 	Stdin() io.Reader
 	VarArgs(func(string) error) error
+	IsLib() bool
 
 	ConvertOptions() error
 }
@@ -98,6 +100,7 @@ type request struct {
 	optionDefs map[string]Option
 	values     map[string]interface{}
 	stdin      io.Reader
+	islib      bool
 }
 
 // Path returns the command path of this request
@@ -202,6 +205,10 @@ func (r *request) SetFiles(f files.File) {
 
 func (r *request) Context() context.Context {
 	return r.rctx
+}
+
+func (r *request) IsLib() bool {
+	return r.islib
 }
 
 func (r *request) haveVarArgsFromStdin() bool {

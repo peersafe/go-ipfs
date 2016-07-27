@@ -9,12 +9,14 @@ import (
 
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
+	crypto "gx/ipfs/QmUWER4r4qMvaCnX5zREcfyiWN7cXN9g3a7fkRqNz8qWPP/go-libp2p-crypto"
+
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	cmds "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
 	path "github.com/ipfs/go-ipfs/path"
-	crypto "gx/ipfs/QmUWER4r4qMvaCnX5zREcfyiWN7cXN9g3a7fkRqNz8qWPP/go-libp2p-crypto"
 )
+
 
 var errNotOnline = errors.New("This command must be run in online mode. Try running 'ipfs daemon' first.")
 
@@ -56,6 +58,7 @@ Publish an <ipfs-path> to another public key (not implemented):
     This accepts durations such as "300s", "1.5h" or "2h45m". Valid time units are
     "ns", "us" (or "µs"), "ms", "s", "m", "h".`).Default("24h"),
 		cmds.StringOption("ttl", "Time duration this record should be cached for (caution: experimental)."),
+		cmds.BoolOption(islibOptionName, "Is for lib").Default(false),
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
 		log.Debug("begin publish")
@@ -109,6 +112,11 @@ Publish an <ipfs-path> to another public key (not implemented):
 			ctx = context.WithValue(ctx, "ipns-publish-ttl", d)
 		}
 
+		if _, _, err := req.Option(islibOptionName).Bool(); err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
 		output, err := publish(ctx, n, n.PrivateKey, path.Path(pstr), popts)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
@@ -118,8 +126,15 @@ Publish an <ipfs-path> to another public key (not implemented):
 	},
 	Marshalers: cmds.MarshalerMap{
 		cmds.Text: func(res cmds.Response) (io.Reader, error) {
+			islib, _, _ := res.Request().Option(islibOptionName).Bool()
+
 			v := res.Output().(*IpnsEntry)
-			s := fmt.Sprintf("Published to %s: %s\n", v.Name, v.Value)
+			var s string
+			if islib {
+				s = fmt.Sprintf("%s", v.Name)
+			} else {
+				s = fmt.Sprintf("Published to %s: %s\n", v.Name, v.Value)
+			}
 			return strings.NewReader(s), nil
 		},
 	},

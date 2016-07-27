@@ -1,11 +1,15 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
-	"github.com/ipfs/go-ipfs/core/coreunix"
 	"gx/ipfs/QmeWjRodbcZFKe5tMN7poEx3izym6osrLSnTLf9UjJZBbs/pb"
+
+	"github.com/ipfs/go-ipfs/core/coreunix"
+
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	files "github.com/ipfs/go-ipfs/commands/files"
@@ -13,7 +17,6 @@ import (
 	dagtest "github.com/ipfs/go-ipfs/merkledag/test"
 	mfs "github.com/ipfs/go-ipfs/mfs"
 	ft "github.com/ipfs/go-ipfs/unixfs"
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 )
 
 // Error indicating the max depth has been exceded.
@@ -29,6 +32,7 @@ const (
 	onlyHashOptionName = "only-hash"
 	chunkerOptionName  = "chunker"
 	pinOptionName      = "pin"
+	islibOptionName    = "is-lib"
 )
 
 var AddCmd = &cmds.Command{
@@ -75,6 +79,7 @@ You can now refer to the added file in a gateway, like so:
 		cmds.BoolOption(hiddenOptionName, "H", "Include files that are hidden. Only takes effect on recursive add.").Default(false),
 		cmds.StringOption(chunkerOptionName, "s", "Chunking algorithm to use."),
 		cmds.BoolOption(pinOptionName, "Pin this object when adding.").Default(true),
+		cmds.BoolOption(islibOptionName, "Is for lib").Default(false),
 	},
 	PreRun: func(req cmds.Request) error {
 		if quiet, _, _ := req.Option(quietOptionName).Bool(); quiet {
@@ -127,6 +132,7 @@ You can now refer to the added file in a gateway, like so:
 		silent, _, _ := req.Option(silentOptionName).Bool()
 		chunker, _, _ := req.Option(chunkerOptionName).String()
 		dopin, _, _ := req.Option(pinOptionName).Bool()
+		islib, _, _ := req.Option(islibOptionName).Bool()
 
 		if hash {
 			nilnode, err := core.NewNode(n.Context(), &core.BuildCfg{
@@ -157,6 +163,7 @@ You can now refer to the added file in a gateway, like so:
 		fileAdder.Trickle = trickle
 		fileAdder.Wrap = wrap
 		fileAdder.Pin = dopin
+		fileAdder.Islib = islib
 		fileAdder.Silent = silent
 
 		if hash {
@@ -238,6 +245,12 @@ You can now refer to the added file in a gateway, like so:
 			return
 		}
 
+		islib, _, err := req.Option(islibOptionName).Bool()
+		if err != nil {
+			res.SetError(u.ErrCast(), cmds.ErrNormal)
+			return
+		}
+
 		if !quiet && !silent {
 			progress = true
 		}
@@ -260,6 +273,7 @@ You can now refer to the added file in a gateway, like so:
 
 		lastFile := ""
 		var totalProgress, prevFiles, lastBytes int64
+		var lastoutput *coreunix.AddedObject
 
 	LOOP:
 		for {
@@ -270,14 +284,19 @@ You can now refer to the added file in a gateway, like so:
 				}
 				output := out.(*coreunix.AddedObject)
 				if len(output.Hash) > 0 {
+					lastoutput = output
 					if progress {
 						// clear progress bar line before we print "added x" output
 						fmt.Fprintf(res.Stderr(), "\033[2K\r")
 					}
 					if quiet {
-						fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
+						if !islib {
+							fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
+						}
 					} else {
-						fmt.Fprintf(res.Stdout(), "added %s %s\n", output.Hash, output.Name)
+						if !islib {
+							fmt.Fprintf(res.Stdout(), "added %s %s\n", output.Hash, output.Name)
+						}
 					}
 
 				} else {
@@ -301,6 +320,12 @@ You can now refer to the added file in a gateway, like so:
 
 				if progress {
 					bar.Update()
+				}
+
+				if islib {
+					var outBuf bytes.Buffer
+					fmt.Fprintf(&outBuf, "%s", lastoutput.Hash)
+					res.SetOutput(bytes.NewReader(outBuf.Bytes()))
 				}
 			case size := <-sizeChan:
 				if progress {

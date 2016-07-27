@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -47,6 +48,7 @@ format:
 	Options: []cmds.Option{
 		cmds.BoolOption("headers", "v", "Print table headers (Hash, Size, Name).").Default(false),
 		cmds.BoolOption("resolve-type", "Resolve linked objects to find out their types.").Default(true),
+		cmds.BoolOption(islibOptionName, "Is for lib").Default(false),
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
 		node, err := req.InvocContext().GetNode()
@@ -63,6 +65,11 @@ format:
 
 		resolve, _, err := req.Option("resolve-type").Bool()
 		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		if _, _, err := req.Option(islibOptionName).Bool(); err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
@@ -133,27 +140,35 @@ format:
 		cmds.Text: func(res cmds.Response) (io.Reader, error) {
 
 			headers, _, _ := res.Request().Option("headers").Bool()
+			islib, _, _ := res.Request().Option(islibOptionName).Bool()
+
 			output := res.Output().(*LsOutput)
 			buf := new(bytes.Buffer)
-			w := tabwriter.NewWriter(buf, 1, 2, 1, ' ', 0)
-			for _, object := range output.Objects {
-				if len(output.Objects) > 1 {
-					fmt.Fprintf(w, "%s:\n", object.Hash)
-				}
-				if headers {
-					fmt.Fprintln(w, "Hash\tSize\tName")
-				}
-				for _, link := range object.Links {
-					if link.Type == unixfspb.Data_Directory {
-						link.Name += "/"
+
+			if islib {
+				enc := json.NewEncoder(buf)
+				enc.Encode(output)
+			} else {
+				w := tabwriter.NewWriter(buf, 1, 2, 1, ' ', 0)
+				for _, object := range output.Objects {
+					if len(output.Objects) > 1 {
+						fmt.Fprintf(w, "%s:\n", object.Hash)
 					}
-					fmt.Fprintf(w, "%s\t%v\t%s\n", link.Hash, link.Size, link.Name)
+					if headers {
+						fmt.Fprintln(w, "Hash\tSize\tName")
+					}
+					for _, link := range object.Links {
+						if link.Type == unixfspb.Data_Directory {
+							link.Name += "/"
+						}
+						fmt.Fprintf(w, "%s\t%v\t%s\n", link.Hash, link.Size, link.Name)
+					}
+					if len(output.Objects) > 1 {
+						fmt.Fprintln(w)
+					}
 				}
-				if len(output.Objects) > 1 {
-					fmt.Fprintln(w)
-				}
+				w.Flush()
 			}
-			w.Flush()
 
 			return buf, nil
 		},
