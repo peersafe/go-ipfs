@@ -1,0 +1,6 @@
+25a26
+> 	"runtime"
+124c125
+< 	if err != nil {
+---
+> 	if err != nil || runtime.GOOS == "windows" {
