@@ -199,7 +199,8 @@ func setupDiscoveryOption(d config.Discovery) DiscoveryOption {
 			if d.MDNS.Interval == 0 {
 				d.MDNS.Interval = 5
 			}
-			return discovery.NewMdnsService(h, time.Duration(d.MDNS.Interval)*time.Second)
+			// TODO(liliuhai): Remember to change mdns.go support set ServiceTag,modify by mdns.diff file.
+			return discovery.NewMdnsService(h, time.Duration(d.MDNS.Interval)*time.Second, d.MDNS.ServiceTag)
 		}
 	}
 	return nil

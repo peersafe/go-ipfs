@@ -1,0 +1,32 @@
+23c23
+< const ServiceTag = "_peersafe.ipfs-discovery._udp"
+---
+> //const ServiceTag = "_peersafe.ipfs-discovery._udp"
+36,38c36,39
+< 	server  *mdns.Server
+< 	service *mdns.MDNSService
+< 	host    host.Host
+---
+> 	server     *mdns.Server
+> 	service    *mdns.MDNSService
+> 	host       host.Host
+> 	serviceTag string
+63c64
+< func NewMdnsService(peerhost host.Host, interval time.Duration) (Service, error) {
+---
+> func NewMdnsService(peerhost host.Host, interval time.Duration, ServiceTag string) (Service, error) {
+96,99c97,101
+< 		server:   server,
+< 		service:  service,
+< 		host:     peerhost,
+< 		interval: interval,
+---
+> 		server:     server,
+> 		service:    service,
+> 		host:       peerhost,
+> 		interval:   interval,
+> 		serviceTag: ServiceTag,
+126c128
+< 			qp.Service = ServiceTag
+---
+> 			qp.Service = m.serviceTag
