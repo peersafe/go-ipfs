@@ -45,8 +45,9 @@ func Init(out io.Writer, nBitsForKeypair int) (*Config, error) {
 		Bootstrap: BootstrapPeerStrings(bootstrapPeers),
 		Identity:  identity,
 		Discovery: Discovery{MDNS{
-			Enabled:  true,
-			Interval: 10,
+			Enabled:    true,
+			Interval:   10,
+			ServiceTag: DefaultMDNSServiceTag,
 		}},
 
 		// setup the node mount points.
