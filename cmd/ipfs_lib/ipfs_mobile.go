@@ -65,7 +65,7 @@ func Ipfs_add(os_path string, second int) string {
 		} else if fi.Mode().IsRegular() {
 			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
 		} else {
-			return mt.Sprintf("%d%s%s", errRet, cmdSep, "")
+			return fmt.Sprintf("%d%s%s", errRet, cmdSep, "")
 		}
 		res, addHash, err := ipfsCmdTime(cmdSuff, second)
 		if err != nil {
