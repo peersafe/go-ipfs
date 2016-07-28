@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 
 	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 
@@ -62,12 +61,12 @@ Set the value of the 'datastore.path' key:
 		key := args[0]
 
 		// This is a temporary fix until we move the private key out of the config file
-		switch strings.ToLower(key) {
-		case "identity", "identity.privkey":
-			res.SetError(fmt.Errorf("cannot show or change private key through API"), cmds.ErrNormal)
-			return
-		default:
-		}
+		// switch strings.ToLower(key) {
+		// case "identity", "identity.privkey":
+		// 	res.SetError(fmt.Errorf("cannot show or change private key through API"), cmds.ErrNormal)
+		// 	return
+		// default:
+		// }
 
 		r, err := fsrepo.Open(req.InvocContext().ConfigRoot)
 		if err != nil {
