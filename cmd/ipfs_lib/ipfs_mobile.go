@@ -61,14 +61,13 @@ func Ipfs_add(os_path string, second int) string {
 		fi, err := os.Lstat(os_path)
 		cmdSuff := ""
 		if fi.Mode().IsDir() {
-			cmdSuff = "ipfs add -r "
+			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", "-r", os_path}, cmdSep)
 		} else if fi.Mode().IsRegular() {
-			cmdSuff = "ipfs add "
+			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
 		} else {
-			return fmt.Sprintf("%d%s%s", errRet, cmdSep, "")
+			return mt.Sprintf("%d%s%s", errRet, cmdSep, "")
 		}
-		fmt.Println("add cmd", cmdSuff, os_path)
-		res, addHash, err := ipfsCmdTime(cmdSuff+os_path, second)
+		res, addHash, err := ipfsCmdTime(cmdSuff, second)
 		if err != nil {
 			return fmt.Sprintf("%d%s%s", res, cmdSep, "")
 		}
