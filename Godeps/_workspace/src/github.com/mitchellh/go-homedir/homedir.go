@@ -22,7 +22,10 @@ func Dir() (string, error) {
 	}
 
 	// Unix-like system, so just assume Unix
-	return dirUnix()
+	if Home_Unix_Dir == "" {
+		return dirUnix()
+	}
+	return Home_Unix_Dir, nil
 }
 
 // Expand expands the path to include the home directory if the path
