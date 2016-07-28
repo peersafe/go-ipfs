@@ -273,8 +273,6 @@ You can now refer to the added file in a gateway, like so:
 
 		lastFile := ""
 		var totalProgress, prevFiles, lastBytes int64
-		var lastoutput *coreunix.AddedObject
-
 	LOOP:
 		for {
 			select {
@@ -284,7 +282,6 @@ You can now refer to the added file in a gateway, like so:
 				}
 				output := out.(*coreunix.AddedObject)
 				if len(output.Hash) > 0 {
-					lastoutput = output
 					if progress {
 						// clear progress bar line before we print "added x" output
 						fmt.Fprintf(res.Stderr(), "\033[2K\r")
@@ -323,8 +320,8 @@ You can now refer to the added file in a gateway, like so:
 				}
 
 				if islib {
-					var outBuf bytes.Buffer
-					fmt.Fprintf(&outBuf, "%s", lastoutput.Hash)
+					outBuf := new(bytes.Buffer)
+					fmt.Fprintf(outBuf, "%s", output.Hash)
 					res.SetOutput(bytes.NewReader(outBuf.Bytes()))
 				}
 			case size := <-sizeChan:

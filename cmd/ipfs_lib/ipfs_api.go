@@ -32,6 +32,10 @@ func IpfsInit() (int, string) {
 	}
 
 	str = strings.Trim(str, endsep)
+	index := strings.LastIndex(str, ":")
+	str = strings.Trim(str[index+1:], " ")
+
+	str = strings.Trim(str, endsep)
 	return len(str), str
 }
 
@@ -105,22 +109,22 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 
 		cmdSuff := ""
 		if fi.Mode().IsDir() {
-			cmdSuff = strings.Join([]string{"ipfs", "add", "-r"}, cmdSep)
+			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", "-r", os_path}, cmdSep)
 		} else if fi.Mode().IsRegular() {
-			cmdSuff = strings.Join([]string{"ipfs", "add"}, cmdSep)
+			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
 		} else {
 			return errRet, ""
 		}
 
-		fmt.Println(cmdSuff, os_path)
-		_, addHash, err = ipfsCmdTime(strings.Join([]string{cmdSuff, os_path}, cmdSep), second)
+		fmt.Println(cmdSuff)
+		_, addHash, err = ipfsCmdTime(cmdSuff, second)
 		if err != nil {
 			return errRet, ""
 		}
 	}
 
 	ipfs_path = path.Clean(ipfs_path)
-	cmd := strings.Join([]string{"ipfs", "object", "patch", root_hash, "add-link", ipfs_path, addHash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, addHash}, cmdSep)
 	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -150,7 +154,7 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "object", "patch", root_hash, "rm-link", ipfs_path}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", root_hash, ipfs_path}, cmdSep)
 	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -196,7 +200,7 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 		object_path = ipfs_path_src[1 : len(ipfs_path_src)-1]
 	}
 
-	statCmd := strings.Join([]string{"ipfs", "object", "stat", root_hash + "/" + object_path}, cmdSep)
+	statCmd := strings.Join([]string{"ipfs", "object", "stat", "--is-lib=true", root_hash + "/" + object_path}, cmdSep)
 	fmt.Println(statCmd)
 	_, statStr, err := ipfsCmdTime(statCmd, second)
 	if err != nil {
@@ -211,7 +215,7 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 	}
 	nodeStat.Hash = strings.Trim(nodeStat.Hash, endsep)
 
-	addCmd := strings.Join([]string{"ipfs", "object", "patch", root_hash, "add-link", ipfs_path_des, nodeStat.Hash}, cmdSep)
+	addCmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path_des, nodeStat.Hash}, cmdSep)
 	fmt.Println(addCmd)
 	_, newHash, err := ipfsCmdTime(addCmd, second)
 	if err != nil {
@@ -220,7 +224,7 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 	}
 
 	newHash = strings.Trim(newHash, endsep)
-	delCmd := strings.Join([]string{"ipfs", "object", "patch", newHash, "rm-link", ipfs_path_src}, cmdSep)
+	delCmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", newHash, ipfs_path_src}, cmdSep)
 	fmt.Println(delCmd)
 	_, new_root_hash, err := ipfsCmdTime(delCmd, second)
 	if err != nil {
@@ -250,7 +254,7 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "object", "patch", "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "add-link", shard_name, object_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", shard_name, object_hash}, cmdSep)
 	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -303,7 +307,7 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	ipfs_path = ipfs_path[1:]
 
 	if len(ipfs_path) != 0 {
-		statCmd := strings.Join([]string{"ipfs", "object", "stat", object_hash + "/" + ipfs_path}, cmdSep)
+		statCmd := strings.Join([]string{"ipfs", "object", "stat", "--is-lib=true", object_hash + "/" + ipfs_path}, cmdSep)
 		fmt.Println(statCmd)
 		_, statStr, err := ipfsCmdTime(statCmd, second)
 		if err != nil {
@@ -320,7 +324,7 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 		object_hash = strings.Trim(nodeStat.Hash, endsep)
 	}
 
-	cmd := strings.Join([]string{"ipfs", "ls", object_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "ls", "--is-lib=true", object_hash}, cmdSep)
 	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -354,7 +358,7 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 		return errRet, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "object", "patch", root_hash, "add-link", ipfs_path, shard_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, shard_hash}, cmdSep)
 	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -426,7 +430,7 @@ func IpfsPublish(object_hash string, second int) (int, string) {
 		return errRet, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "name", "publish", object_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "name", "publish", "--is-lib=true", object_hash}, cmdSep)
 	fmt.Println(cmd)
 	_, hash, err := ipfsCmdTime(cmd, second)
 	if err != nil {
