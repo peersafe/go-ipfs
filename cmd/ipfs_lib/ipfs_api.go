@@ -409,7 +409,7 @@ func IpfsPrivkey(new_key string, second int) (int, string) {
 	}
 
 	if len(new_key) != 0 {
-		cmd += " " + new_key
+		cmd := strings.Join([]string{cmd, new_key}, cmdSep)
 		fmt.Println(cmd)
 		_, _, err := ipfsCmdTime(cmd, second)
 		if err != nil {
