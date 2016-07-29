@@ -385,7 +385,7 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 	}
 
 	if len(new_id) != 0 {
-		cmd += " " + new_id
+		cmd += cmdSep + new_id
 		fmt.Println(cmd)
 		_, _, err := ipfsCmdTime(cmd, second)
 		if err != nil {
