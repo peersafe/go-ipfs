@@ -421,7 +421,7 @@ func appendFile(fpath string, argDef *cmds.Argument, recursive, hidden bool) (fi
 		}
 	}
 
-	return files.NewSerialFile(path.Base(fpath), fpath, hidden, stat)
+	return files.NewSerialFile(path.Base(filepath.ToSlash(fpath)), fpath, hidden, stat)
 }
 
 // Inform the user if a file is waiting on input
