@@ -147,6 +147,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	// pass master context cancelFunc to request
+	if invoc.cmd == daemonCmd {
+		invoc.req.SetCancelFunc(cancel)
+	}
+
 	// ok, finally, run the command invocation.
 	intrh, ctx := invoc.SetupInterruptHandler(ctx)
 	defer intrh.Close()

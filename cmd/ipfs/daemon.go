@@ -410,7 +410,7 @@ func serveHTTPApi(req cmds.Request) (error, <-chan error) {
 
 	var opts = []corehttp.ServeOption{
 		corehttp.MetricsCollectionOption("api"),
-		corehttp.CommandsOption(*req.InvocContext()),
+		corehttp.CommandsOption(*req.InvocContext(), req.CancelFunc()),
 		corehttp.WebUIOption,
 		gatewayOpt,
 		corehttp.VersionOption(),
@@ -493,7 +493,7 @@ func serveHTTPGateway(req cmds.Request) (error, <-chan error) {
 
 	var opts = []corehttp.ServeOption{
 		corehttp.MetricsCollectionOption("gateway"),
-		corehttp.CommandsROOption(*req.InvocContext()),
+		corehttp.CommandsROOption(*req.InvocContext(), req.CancelFunc()),
 		corehttp.VersionOption(),
 		corehttp.IPNSHostnameOption(),
 		corehttp.GatewayOption("/ipfs", "/ipns"),

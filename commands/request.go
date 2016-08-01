@@ -85,6 +85,8 @@ type Request interface {
 	Stdin() io.Reader
 	VarArgs(func(string) error) error
 	IsLib() bool
+	SetCancelFunc(context.CancelFunc)
+	CancelFunc() context.CancelFunc
 
 	ConvertOptions() error
 }
@@ -101,6 +103,7 @@ type request struct {
 	values     map[string]interface{}
 	stdin      io.Reader
 	islib      bool
+	cancelFunc context.CancelFunc
 }
 
 // Path returns the command path of this request
@@ -209,6 +212,14 @@ func (r *request) Context() context.Context {
 
 func (r *request) IsLib() bool {
 	return r.islib
+}
+
+func (r *request) SetCancelFunc(cancel context.CancelFunc) {
+	r.cancelFunc = cancel
+}
+
+func (r *request) CancelFunc() context.CancelFunc {
+	return r.cancelFunc
 }
 
 func (r *request) haveVarArgsFromStdin() bool {
