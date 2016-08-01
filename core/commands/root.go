@@ -38,6 +38,7 @@ DATA STRUCTURE COMMANDS
 
 ADVANCED COMMANDS
   daemon        Start a long-running daemon process
+  shutdown      Stop a long-running daemon process
   mount         Mount an ipfs read-only mountpoint
   resolve       Resolve any type of name
   name          Publish or resolve IPNS names
@@ -114,6 +115,7 @@ var rootSubcommands = map[string]*cmds.Command{
 	"remotepin": RemotePinCmd,
 	"remotels":  RemoteLsCmd,
 	"relaypin":  RelayPinCmd,
+	"shutdown":  ShutdownCmd,
 }
 
 // RootRO is the readonly version of Root

@@ -11,21 +11,24 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ipfs/go-ipfs/repo/config"
 	cors "gx/ipfs/QmQzTLDsi3a37CJyMDBXnjiHKQpth3AGS1yqwU57FfLwfG/cors"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
-	cmds "github.com/ipfs/go-ipfs/commands"
+	"github.com/ipfs/go-ipfs/repo/config"
+
 	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
+
+	cmds "github.com/ipfs/go-ipfs/commands"
 )
 
 var log = logging.Logger("commands/http")
 
 // the internal handler for the API
 type internalHandler struct {
-	ctx  cmds.Context
-	root *cmds.Command
-	cfg  *ServerConfig
+	ctx    cmds.Context
+	root   *cmds.Command
+	cfg    *ServerConfig
+	cancel context.CancelFunc
 }
 
 // The Handler struct is funny because we want to wrap our internal handler
@@ -95,7 +98,7 @@ func skipAPIHeader(h string) bool {
 	}
 }
 
-func NewHandler(ctx cmds.Context, root *cmds.Command, cfg *ServerConfig) http.Handler {
+func NewHandler(ctx cmds.Context, root *cmds.Command, cfg *ServerConfig, cancel context.CancelFunc) http.Handler {
 	if cfg == nil {
 		panic("must provide a valid ServerConfig")
 	}
@@ -106,9 +109,10 @@ func NewHandler(ctx cmds.Context, root *cmds.Command, cfg *ServerConfig) http.Ha
 	// Wrap the internal handler with CORS handling-middleware.
 	// Create a handler for the API.
 	internal := internalHandler{
-		ctx:  ctx,
-		root: root,
-		cfg:  cfg,
+		ctx:    ctx,
+		root:   root,
+		cfg:    cfg,
+		cancel: cancel,
 	}
 	c := cors.New(*cfg.cORSOpts)
 	return &Handler{internal, c.Handler(internal)}
@@ -182,6 +186,7 @@ func (i internalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.SetCancelFunc(i.cancel)
 	// call the command
 	res := i.root.Call(req)
 

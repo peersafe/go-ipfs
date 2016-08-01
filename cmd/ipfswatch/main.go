@@ -7,6 +7,9 @@ import (
 	"os/signal"
 	"path/filepath"
 
+	process "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess"
+	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+
 	homedir "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 	commands "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
@@ -14,8 +17,6 @@ import (
 	coreunix "github.com/ipfs/go-ipfs/core/coreunix"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
-	process "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess"
-	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 	fsnotify "gx/ipfs/QmczzCMvJ3HV57WBKDy8b4ucp7quT325JjDbixYRS5Pwvv/fsnotify.v1"
 )
 
@@ -92,7 +93,7 @@ func run(ipfsPath, watchPath string) error {
 		var opts = []corehttp.ServeOption{
 			corehttp.GatewayOption("/ipfs", "/ipns"),
 			corehttp.WebUIOption,
-			corehttp.CommandsOption(cmdCtx(node, ipfsPath)),
+			corehttp.CommandsOption(cmdCtx(node, ipfsPath), nil),
 		}
 		proc.Go(func(p process.Process) {
 			if err := corehttp.ListenAndServe(node, addr, opts...); err != nil {
