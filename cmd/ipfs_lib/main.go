@@ -314,7 +314,7 @@ func callPreCommandHooks(ctx context.Context, details cmdDetails, req cmds.Reque
 	return nil
 }
 
-func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command, time time.Duration) (cmds.Response, error) {
+func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command, timeout time.Duration) (cmds.Response, error) {
 	log.Info(config.EnvDir, " ", req.InvocContext().ConfigRoot)
 	var res cmds.Response
 
