@@ -1,7 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include "libipfs.h"
+
+void path(){
+	char res[255] = {0};
+	char* ipfsPath = "ipfsPath";
+	printf("%s\n",ipfsPath);
+
+	GoInt ret = ipfs_path(ipfsPath,res);
+
+	printf("ipfs_path[%d][%s]\n", ret, res);
+}
 
 void init() {
 	char res[255] = {0};
@@ -11,11 +22,17 @@ void init() {
 	printf("ipfs_init[%d][%s]\n", ret, res);
 }
 
-void daemon() {
+void daemon1() {
 	char res[255] = {0};
 
 	ipfs_daemon(res);
 	printf("[%d]\n", res);
+}
+
+void shutdown(){
+	char res[255] = {0};
+	GoInt ret = ipfs_shutdown(res);
+	printf("ipfs_shutdown[%d][%s]\n", ret, res);
 }
 
 void add() {
@@ -30,7 +47,7 @@ void add() {
 	filepath.n = strlen(filepath.p);
 
 	GoString str;
-	str.p = "/home/gouser/ipfs_test/IMG_7714.JPG.png";
+	str.p = "./IMG_7714.JPG.png";
 	str.n = strlen(str.p);
 
 	char res[255] = {0};
@@ -42,7 +59,7 @@ void add() {
 	hash2.n = strlen(res);
 
 	GoString str2;
-	str2.p = "/home/gouser/ipfs_test/dir";
+	str2.p = "./dir";
 	str2.n = strlen(str2.p);
 
 	GoString dirpath;
@@ -336,8 +353,7 @@ void cmd() {
 	printf("ret[%d][%s]\n", ret, pRest);
 }
 
-int main() {
-	//init();
+void operate(){
 	add();
 	delete();
 	move();
@@ -347,8 +363,37 @@ int main() {
 	merge();
 	peerid();
 	privkey();
-	connect();
-	publish();
-	remotepin();
-	remotels();
+	// connect();
+	// publish();
+	// remotepin();
+	// remotels();
+}
+
+int main() {
+	path();
+	init();
+	
+	// do daemon
+	pthread_t tid1,tid2;
+    int ret1,ret2;
+    ret1 = pthread_create(&tid1, NULL, (void*)daemon1, NULL);
+    if(ret1 != 0)
+    {
+        printf("Thread Create Daemon Error\n");
+        exit(0);
+    }
+
+    // wait for daemon start
+    sleep(10);
+
+    ret2 = pthread_create(&tid2, NULL, (void*)operate, NULL);
+    if(ret2 != 0)
+    {
+        printf("Thread Create Operate Error\n");
+        exit(0);
+    }
+
+	pthread_join(tid2, NULL);
+	pthread_join(tid1, NULL);
+	shutdown();
 }

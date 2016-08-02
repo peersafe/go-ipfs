@@ -24,6 +24,15 @@ type statInfo struct {
 	Hash string
 }
 
+//export ipfs_path
+func ipfs_path(path *C.char, out_res *C.char) int {
+	if ret, str := ipfs_lib.IpfsPath(C.GoString(path)); ret != errRet {
+		goStringToChar(str, out_res)
+		return ret
+	}
+	return errRet
+}
+
 //export ipfs_init
 func ipfs_init(out_res *C.char) int {
 	if ret, str := ipfs_lib.IpfsInit(); ret != errRet {
@@ -36,6 +45,15 @@ func ipfs_init(out_res *C.char) int {
 //export ipfs_daemon
 func ipfs_daemon(out_res *C.char) int {
 	if ret, str := ipfs_lib.IpfsDaemon(); ret != errRet {
+		goStringToChar(str, out_res)
+		return ret
+	}
+	return errRet
+}
+
+//export ipfs_shutdown
+func ipfs_shutdown(out_res *C.char) int {
+	if ret, str := ipfs_lib.IpfsShutDown(); ret != errRet {
 		goStringToChar(str, out_res)
 		return ret
 	}

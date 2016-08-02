@@ -67,6 +67,10 @@ type cmdInvocation struct {
 // - output the response
 // - if anything fails, print error, maybe with help
 func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
+	if len(strings.Trim(ipfsPath, " ")) > 0 {
+		cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
+	}
+	fmt.Println(cmd)
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
@@ -186,10 +190,6 @@ func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
 		return 1, printErr(err), err
 	}
 	return 0, outBuf.String(), nil
-}
-
-func ipfsCmd(cmd string) (int, string, error) {
-	return ipfsCmdTime(cmd, 0)
 }
 
 func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
