@@ -40,7 +40,7 @@ func IpfsInit() (int, string) {
 }
 
 func IpfsDaemon() (int, string) {
-	cmd := strings.Join([]string{"ipds", "daemon"}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "daemon"}, cmdSep)
 	_, str, err := ipfsCmd(cmd)
 	if err != nil {
 		fmt.Println(err)
@@ -52,7 +52,7 @@ func IpfsDaemon() (int, string) {
 }
 
 func IpfsDown() (int, string) {
-	cmd := strings.Join([]string{"ipds", "down"}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "shutdown"}, cmdSep)
 	_, str, err := ipfsCmd(cmd)
 	if err != nil {
 		fmt.Println(err)
@@ -64,7 +64,7 @@ func IpfsDown() (int, string) {
 }
 
 func IpfsId(second int) (int, string) {
-	cmd := strings.Join([]string{"ipds", "id"}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "id"}, cmdSep)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
