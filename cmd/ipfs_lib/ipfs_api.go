@@ -580,6 +580,14 @@ func ipfsCmd(cmd string) (int, string, error) {
 	return ipfsCmdTime(cmd, 0)
 }
 
+func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
+	if len(strings.Trim(ipfsPath, " ")) > 0 {
+		cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
+	}
+	fmt.Println(cmd)
+	return ipfsMain(cmd, second)
+}
+
 func ipfsPathClean(ipfsPath string) (string, error) {
 	if !strings.HasPrefix(ipfsPath, "/") {
 		return "", errors.New("must prefix is /")

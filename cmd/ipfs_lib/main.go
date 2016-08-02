@@ -66,11 +66,7 @@ type cmdInvocation struct {
 // - run the command invocation
 // - output the response
 // - if anything fails, print error, maybe with help
-func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
-	if len(strings.Trim(ipfsPath, " ")) > 0 {
-		cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
-	}
-	fmt.Println(cmd)
+func ipfsMain(cmd string, second int) (r int, s string, e error) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)

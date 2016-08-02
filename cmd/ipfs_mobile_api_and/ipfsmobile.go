@@ -25,6 +25,10 @@ func IpfsDaemon() string {
 	return ipfslib.Ipfs_daemon()
 }
 
+func IpfsShutdown() string {
+	return ipfslib.Ipfs_shutdown()
+}
+
 func IpfsId(second int) string {
 	return ipfslib.Ipfs_id(second)
 }
