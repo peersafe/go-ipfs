@@ -17,12 +17,16 @@ func IpfsPath(path string) string {
 	return ipfslib.Ipfs_path(path)
 }
 
-func IpfsInit(path string) string {
-	return ipfslib.Ipfs_init(path)
+func IpfsInit() string {
+	return ipfslib.Ipfs_init()
 }
 
 func IpfsDaemon() string {
 	return ipfslib.Ipfs_daemon()
+}
+
+func IpfsShutdown() string {
+	return ipfslib.Ipfs_shutdown()
 }
 
 func IpfsId(second int) string {
@@ -60,7 +64,3 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) string {
 func IpfsConnectpeer(remote_peer string, second int) string {
 	return ipfslib.Ipfs_connectpeer(remote_peer, second)
 }
-
-//func IpfsDaemonClose() {
-//	ipfslib.Ipfs_daemon_close()
-//}

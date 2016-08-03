@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
+	homedir "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 )
 
 func Ipfs_cmd_arm(cmd string, second int) string {
@@ -17,17 +17,22 @@ func Ipfs_cmd_arm(cmd string, second int) string {
 
 func Ipfs_path(path string) string {
 	homedir.Home_Unix_Dir = path
-	return fmt.Sprintf("%d%s%s", sucRet, cmdSep, "")
+	res, str := IpfsPath(path)
+	return fmt.Sprintf("%d%s%s", res, cmdSep, str)
 }
 
-func Ipfs_init(path string) string {
-	homedir.Home_Unix_Dir = path
+func Ipfs_init() string {
 	res, str := IpfsInit()
 	return fmt.Sprintf("%d%s%s", res, cmdSep, str)
 }
 
 func Ipfs_daemon() string {
 	res, str := IpfsDaemon()
+	return fmt.Sprintf("%d%s%s", res, cmdSep, str)
+}
+
+func Ipfs_shutdown() string {
+	res, str := IpfsShutDown()
 	return fmt.Sprintf("%d%s%s", res, cmdSep, str)
 }
 

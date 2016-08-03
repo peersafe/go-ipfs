@@ -19,12 +19,23 @@ const (
 	cmdSep     = "&X&"
 )
 
+var ipfsPath string
+
 type statInfo struct {
 	Hash string
 }
 
+func IpfsPath(path string) (int, string) {
+	if path != "" {
+		ipfsPath = path
+		return sucRet, ""
+	}
+	return errRet, "path is nil"
+}
+
 func IpfsInit() (int, string) {
 	cmd := strings.Join([]string{"ipfs", "init", "-e"}, cmdSep)
+	fmt.Println(cmd)
 	_, str, err := ipfsCmd(cmd)
 	if err != nil {
 		fmt.Println(err)
@@ -51,7 +62,7 @@ func IpfsDaemon() (int, string) {
 	return len(str), str
 }
 
-func IpfsDown() (int, string) {
+func IpfsShutDown() (int, string) {
 	cmd := strings.Join([]string{"ipfs", "shutdown"}, cmdSep)
 	_, str, err := ipfsCmd(cmd)
 	if err != nil {
@@ -116,7 +127,6 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 			return errRet, ""
 		}
 
-		fmt.Println(cmdSuff)
 		_, addHash, err = ipfsCmdTime(cmdSuff, second)
 		if err != nil {
 			return errRet, ""
@@ -125,7 +135,6 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 
 	ipfs_path = path.Clean(ipfs_path)
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, addHash}, cmdSep)
-	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -155,7 +164,6 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", root_hash, ipfs_path}, cmdSep)
-	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -201,7 +209,6 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 	}
 
 	statCmd := strings.Join([]string{"ipfs", "object", "stat", "--is-lib=true", root_hash + "/" + object_path}, cmdSep)
-	fmt.Println(statCmd)
 	_, statStr, err := ipfsCmdTime(statCmd, second)
 	if err != nil {
 		return errRet, ""
@@ -216,7 +223,6 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 	nodeStat.Hash = strings.Trim(nodeStat.Hash, endsep)
 
 	addCmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path_des, nodeStat.Hash}, cmdSep)
-	fmt.Println(addCmd)
 	_, newHash, err := ipfsCmdTime(addCmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -225,7 +231,6 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 
 	newHash = strings.Trim(newHash, endsep)
 	delCmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", newHash, ipfs_path_src}, cmdSep)
-	fmt.Println(delCmd)
 	_, new_root_hash, err := ipfsCmdTime(delCmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -255,7 +260,6 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", shard_name, object_hash}, cmdSep)
-	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -284,7 +288,6 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "get", shard_hash, "-o", os_path}, cmdSep)
-	fmt.Println(cmd)
 	_, _, err = ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -308,7 +311,6 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 
 	if len(ipfs_path) != 0 {
 		statCmd := strings.Join([]string{"ipfs", "object", "stat", "--is-lib=true", object_hash + "/" + ipfs_path}, cmdSep)
-		fmt.Println(statCmd)
 		_, statStr, err := ipfsCmdTime(statCmd, second)
 		if err != nil {
 			fmt.Println(err)
@@ -325,7 +327,6 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "ls", "--is-lib=true", object_hash}, cmdSep)
-	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -359,7 +360,6 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 	}
 
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, shard_hash}, cmdSep)
-	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -377,7 +377,6 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "config", "Identity.PeerID"}, cmdSep)
-	fmt.Println(cmd)
 	_, peeId, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -385,8 +384,7 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 	}
 
 	if len(new_id) != 0 {
-		cmd += cmdSep + new_id
-		fmt.Println(cmd)
+		cmd = strings.Join([]string{cmd, new_id}, cmdSep)
 		_, _, err := ipfsCmdTime(cmd, second)
 		if err != nil {
 			fmt.Println(err)
@@ -401,7 +399,6 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 
 func IpfsPrivkey(new_key string, second int) (int, string) {
 	cmd := strings.Join([]string{"ipfs", "config", "Identity.PrivKey"}, cmdSep)
-	fmt.Println(cmd)
 	_, key, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -410,7 +407,6 @@ func IpfsPrivkey(new_key string, second int) (int, string) {
 
 	if len(new_key) != 0 {
 		cmd := strings.Join([]string{cmd, new_key}, cmdSep)
-		fmt.Println(cmd)
 		_, _, err := ipfsCmdTime(cmd, second)
 		if err != nil {
 			fmt.Println(err)
@@ -431,7 +427,6 @@ func IpfsPublish(object_hash string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "name", "publish", "--is-lib=true", object_hash}, cmdSep)
-	fmt.Println(cmd)
 	_, hash, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -467,7 +462,6 @@ func IpfsConfig(key, value string) (int, string) {
 	} else {
 		cmd = strings.Join([]string{"ipfs", "config", key, value}, cmdSep)
 	}
-	fmt.Println(cmd)
 
 	_, str, err := ipfsCmd(cmd)
 	if err != nil {
@@ -495,7 +489,6 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (int, stri
 	}
 
 	cmd := strings.Join([]string{"ipfs", "remotepin", peer_id, peer_key, object_hash}, cmdSep)
-	fmt.Println(cmd)
 
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -535,7 +528,6 @@ func IpfsRelaypin(relay_id, relay_key, peer_id, peer_key, object_hash string, se
 	}
 
 	cmd := strings.Join([]string{"ipfs", "relaypin", relay_id, relay_key, peer_id, peer_key, object_hash}, cmdSep)
-	fmt.Println(cmd)
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -562,7 +554,6 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (int, strin
 	}
 
 	cmd := strings.Join([]string{"ipfs", "remotels", peer_id, peer_key, object_hash}, cmdSep)
-	fmt.Println(cmd)
 
 	_, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
@@ -583,6 +574,18 @@ func IpfsCmdApi(cmd string, second int) (int, string) {
 
 	str = strings.Trim(str, endsep)
 	return len(str), str
+}
+
+func ipfsCmd(cmd string) (int, string, error) {
+	return ipfsCmdTime(cmd, 0)
+}
+
+func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
+	if len(strings.Trim(ipfsPath, " ")) > 0 {
+		cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
+	}
+	fmt.Println(cmd)
+	return ipfsMain(cmd, second)
 }
 
 func ipfsPathClean(ipfsPath string) (string, error) {
