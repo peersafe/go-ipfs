@@ -24,6 +24,8 @@ import (
 	ma "gx/ipfs/QmYzDkkgAEmrcNzFCiYo6L1dTX4EAG1gZkbtdbd9trL4vd/go-multiaddr"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
+	api "github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
+
 	path "github.com/ipfs/go-ipfs/path"
 	"github.com/ipfs/go-ipfs/repo/config"
 	iaddr "github.com/ipfs/go-ipfs/thirdparty/ipfsaddr"
@@ -39,13 +41,14 @@ type RemotepinService struct {
 	RemoteMultiplex config.RemoteMultiplex
 	currentPin      chan []string
 	pinQueue        chan string
+	ApiCmd          api.Apier
 }
 
 func NewRemotepinService(h host.Host, key string, remu config.RemoteMultiplex) *RemotepinService {
 	if remu.MaxPin < 1 {
 		remu.MaxPin = 1
 	}
-	ps := &RemotepinService{Host: h, Secret: key, RemoteMultiplex: remu}
+	ps := &RemotepinService{Host: h, Secret: key, RemoteMultiplex: remu, ApiCmd: api.GApiInterface}
 	if remu.Master {
 		ps.currentPin = make(chan []string, len(remu.Slave))
 		for _, v := range ps.RemoteMultiplex.Slave {
@@ -65,7 +68,7 @@ func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 		slen := make([]byte, 1)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("remotepin error:%v", err)
 			return
 		}
 
@@ -74,7 +77,7 @@ func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 		rbuf := make([]byte, len)
 		_, err = io.ReadFull(s, rbuf)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("remotepin error:%v", err)
 			return
 		}
 
@@ -91,7 +94,7 @@ func (p *RemotepinService) RemotepinHandler(s inet.Stream) {
 
 		_, err = s.Write(buf)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("remotepin error:%v", err)
 			return
 		}
 	}
@@ -118,7 +121,7 @@ func (ps *RemotepinService) Run() {
 				ps.currentPin <- strPeer
 			} else if err != nil {
 				ps.currentPin <- strPeer
-				log.Debugf("[%s] delay [%s] error [%s]", fpath, strPeer, err)
+				log.Errorf("[%s] delay [%s] error [%s]", fpath, strPeer, err)
 			} else {
 				ps.currentPin <- strPeer
 				log.Debugf("[%s] delay [%s] success", fpath, strPeer)
@@ -134,13 +137,13 @@ func (p *RemotepinService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
 
 	orig, err := Decrypt(crypted, []byte(p.Secret))
 	if err != nil {
-		log.Debug(err)
+		log.Errorf("remotepin error:%v", err)
 		return nil, err
 	}
 
 	md5hash := md5.Sum(orig)
 	if !bytes.Equal(md5hash[:], md5hash_buf) {
-		log.Debug("Secret authentication failed")
+		log.Errorf("Secret authentication failed")
 		return nil, fmt.Errorf("Secret authentication failed")
 	}
 
@@ -175,16 +178,28 @@ func (p *RemotepinService) MultiplexRequest(fpath string) error {
 
 func (ps *RemotepinService) remotePin(fpath string) error {
 	file, _ := exec.LookPath(os.Args[0])
-	path, _ := filepath.Abs(file)
-	log.Debugf("path [%s]", path)
-	log.Debugf("fpath [%s]", fpath)
-	cmd := exec.Cmd{
-		Path: path,
-		Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
-	}
-	err := cmd.Run()
-	if err != nil {
-		log.Debug(err)
+	app := filepath.Clean(file)
+	app = filepath.ToSlash(app)
+	app = filepath.Base(app)
+	log.Debugf("remotepin file[%v]", file)
+	if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+		// use ipfs
+		path, _ := filepath.Abs(file)
+		log.Debugf("fpath [%s]", fpath)
+		cmd := exec.Cmd{
+			Path: path,
+			Args: []string{"ipfs", "get", fpath, "-o", "/dev/null"},
+		}
+		err := cmd.Run()
+		if err != nil {
+			log.Errorf("remotepin error:%v", err)
+		}
+	} else {
+		// use libipfs
+		_, _, err := ps.ApiCmd.Cmd(strings.Join([]string{"ipfs", "pin", "add", fpath}, "&X&"), 0)
+		if err != nil {
+			log.Errorf("remotepin error:%v", err)
+		}
 	}
 	return nil
 }

@@ -23,6 +23,8 @@ import (
 	inet "gx/ipfs/QmVCe3SNMjkcPgnpFhZs719dheq6xE7gJwjzV7aWcUM4Ms/go-libp2p/p2p/net"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
+	api "github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
+
 	path "github.com/ipfs/go-ipfs/path"
 )
 
@@ -33,10 +35,11 @@ const ID = "/ipfs/remotels"
 type RemotelsService struct {
 	Host   host.Host
 	Secret string
+	ApiCmd api.Apier
 }
 
 func NewRemotelsService(h host.Host, key string) *RemotelsService {
-	ps := &RemotelsService{h, key}
+	ps := &RemotelsService{h, key, api.GApiInterface}
 	h.SetStreamHandler(ID, ps.RemotelsHandler)
 	return ps
 }
@@ -47,7 +50,7 @@ func (p *RemotelsService) RemotelsHandler(s inet.Stream) {
 		slen := make([]byte, 1)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("remotels error:%v", err)
 			return
 		}
 
@@ -56,7 +59,7 @@ func (p *RemotelsService) RemotelsHandler(s inet.Stream) {
 		rbuf := make([]byte, len)
 		_, err = io.ReadFull(s, rbuf)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("remotels error:%v", err)
 			return
 		}
 
@@ -73,7 +76,7 @@ func (p *RemotelsService) RemotelsHandler(s inet.Stream) {
 
 		_, err = s.Write(buf)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("remotels error:%v", err)
 			return
 		}
 	}
@@ -85,13 +88,13 @@ func (p *RemotelsService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
 
 	orig, err := Decrypt(crypted, []byte(p.Secret))
 	if err != nil {
-		log.Debug(err)
+		log.Errorf("remotels error:%v", err)
 		return nil, err
 	}
 
 	md5hash := md5.Sum(orig)
 	if !bytes.Equal(md5hash[:], md5hash_buf) {
-		log.Debug("Secret authentication failed")
+		log.Errorf("Secret authentication failed")
 		return nil, fmt.Errorf("Secret authentication failed")
 	}
 
@@ -103,14 +106,27 @@ func (ps *RemotelsService) remoteLs(fpath string) error {
 	log.Debugf("remotels [%s]", fpath)
 	go func() {
 		file, _ := exec.LookPath(os.Args[0])
-		path, _ := filepath.Abs(file)
-		cmd := exec.Cmd{
-			Path: path,
-			Args: []string{"ipfs", "ls", fpath},
-		}
-		err := cmd.Run()
-		if err != nil {
-			log.Debug(err)
+		app := filepath.Clean(file)
+		app = filepath.ToSlash(app)
+		app = filepath.Base(app)
+		log.Debugf("remotels file[%v]", file)
+		if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+			// use ipfs
+			path, _ := filepath.Abs(file)
+			cmd := exec.Cmd{
+				Path: path,
+				Args: []string{"ipfs", "ls", fpath},
+			}
+			err := cmd.Run()
+			if err != nil {
+				log.Errorf("remotels error:%v", err)
+			}
+		} else {
+			// use libipfs
+			_, _, err := ps.ApiCmd.Cmd(strings.Join([]string{"ipfs", "ls", fpath}, "&X&"), 0)
+			if err != nil {
+				log.Errorf("remotels error:%v", err)
+			}
 		}
 
 	}()
@@ -133,7 +149,7 @@ func (ps *RemotelsService) Remotels(ctx context.Context, p peer.ID, key string, 
 			log.Debugf("remotels [%s][%s]", ID, path)
 			_, err := remotels(s, key, path)
 			if err != nil {
-				log.Debugf("remotels error: %s", err)
+				log.Errorf("remotels error:%v", err)
 			}
 
 			select {
