@@ -60,7 +60,7 @@ func Ipfs_add(os_path string, second int) string {
 	if len(os_path) != 0 {
 		os_path, err := filepath.Abs(path.Clean(os_path))
 		if err != nil {
-			return fmt.Sprintf("%d%s%s", errRet, cmdSep, "")
+			return fmt.Sprintf("%d%s%s", PARA_ERR, cmdSep, "")
 		}
 
 		fi, err := os.Lstat(os_path)
@@ -70,7 +70,7 @@ func Ipfs_add(os_path string, second int) string {
 		} else if fi.Mode().IsRegular() {
 			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
 		} else {
-			return fmt.Sprintf("%d%s%s", errRet, cmdSep, "")
+			return fmt.Sprintf("%d%s%s", PARA_ERR, cmdSep, "")
 		}
 		res, addHash, err := ipfsCmdTime(cmdSuff, second)
 		if err != nil {
@@ -80,7 +80,7 @@ func Ipfs_add(os_path string, second int) string {
 		return fmt.Sprintf("%d%s%s", res, cmdSep, addHash)
 
 	} else {
-		return fmt.Sprintf("%d%s%s", errRet, cmdSep, "")
+		return fmt.Sprintf("%d%s%s", PARA_ERR, cmdSep, "")
 	}
 }
 
