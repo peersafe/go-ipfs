@@ -53,13 +53,11 @@ func (m *RelaypinMsg) toByte() []byte {
 
 func (m *RelaypinMsg) toMsg(buf []byte) {
 	str := string(buf)
-	log.Debug(str)
 	sz := strings.Split(str, "|")
 	m.delay = (sz[0] == "true")
 	m.peer = sz[1]
 	m.key = sz[2]
 	m.path = sz[3]
-	log.Debugf("[%v][%v][%v][%v]", m.delay, m.peer, m.key, m.path)
 }
 
 func NewRelaypinService(h host.Host, key string) *RelaypinService {
@@ -73,7 +71,7 @@ func (p *RelaypinService) RelaypinService(s inet.Stream) {
 		slen := make([]byte, 1)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("relaypin error:%v", err)
 			return
 		}
 
@@ -82,7 +80,7 @@ func (p *RelaypinService) RelaypinService(s inet.Stream) {
 		rbuf := make([]byte, blen)
 		_, err = io.ReadFull(s, rbuf)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("relaypin error:%v", err)
 			return
 		}
 
@@ -103,7 +101,7 @@ func (p *RelaypinService) RelaypinService(s inet.Stream) {
 
 		_, err = s.Write(buf)
 		if err != nil {
-			log.Debug(err)
+			log.Errorf("relaypin error:%v", err)
 			return
 		}
 	}
@@ -115,7 +113,7 @@ func (p *RelaypinService) decryptRequest(buf []byte) (rbuf []byte, err error) {
 
 	orig, err := Decrypt(crypted, []byte(p.Secret))
 	if err != nil {
-		log.Debug(err)
+		log.Errorf("relaypin error:%v", err)
 		return nil, err
 	}
 
@@ -221,7 +219,7 @@ func (ps *RelaypinService) Relaypin(ctx context.Context, p peer.ID, key, peer, p
 		case <-ctx.Done():
 			return
 		default:
-			log.Debugf(">>>>>>>>[%v][%v][%v][%v][%v]", p, key, peer, peerkey, path)
+			log.Debugf("[%v][%v][%v][%v][%v]", p, key, peer, peerkey, path)
 			_, err := relaypin(s, key, peer, peerkey, path, delay)
 			if err != nil {
 				log.Errorf("call relaypin remote error:%v", err)
