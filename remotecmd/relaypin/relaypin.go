@@ -24,6 +24,8 @@ import (
 	ma "gx/ipfs/QmYzDkkgAEmrcNzFCiYo6L1dTX4EAG1gZkbtdbd9trL4vd/go-multiaddr"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
+	api "github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
+
 	path "github.com/ipfs/go-ipfs/path"
 )
 
@@ -34,6 +36,7 @@ const ID = "/ipfs/relaypin"
 type RelaypinService struct {
 	Host   host.Host
 	Secret string
+	ApiCmd api.Apier
 }
 
 type RelaypinMsg struct {
@@ -60,7 +63,7 @@ func (m *RelaypinMsg) toMsg(buf []byte) {
 }
 
 func NewRelaypinService(h host.Host, key string) *RelaypinService {
-	ps := &RelaypinService{Host: h, Secret: key}
+	ps := &RelaypinService{Host: h, Secret: key, ApiCmd: api.GApiInterface}
 	h.SetStreamHandler(ID, ps.RelaypinService)
 	return ps
 }
@@ -82,22 +85,20 @@ func (p *RelaypinService) RelaypinService(s inet.Stream) {
 			log.Debug(err)
 			return
 		}
-		log.Debugf(">>>>>>>>>>>>>> recv len=[%d] rbuf->[%v]", len(rbuf), rbuf)
+
+		log.Debugf("relaypinService recv len=[%d] reallen=[%d] rbuf=[%v]", blen, len(rbuf), rbuf)
 
 		var buf []byte = rbuf
 		msgbuf, err := p.decryptRequest(rbuf)
 		if err != nil {
+			log.Errorf("relaypinService decryptRequest error:%v", err)
 			buf = PKCS5Padding([]byte(fmt.Sprint(err)), blen)
-		}
-
-		log.Debug(">>>>>>>>>>>>>> recv msgbuf->", msgbuf)
-
-		msg := p.parseMsg(msgbuf)
-
-		err = p.relayRequest(msg)
-		if err != nil {
-			log.Debugf(">>>>>>relayRequest is error error=[%v]len=[%d]", err, blen)
-			buf = PKCS5Padding([]byte(fmt.Sprint(err)), blen)
+		} else {
+			msg := p.parseMsg(msgbuf)
+			err = p.relayRequest(msg)
+			if err != nil {
+				buf = PKCS5Padding([]byte(fmt.Sprint(err)), blen)
+			}
 		}
 
 		_, err = s.Write(buf)
@@ -139,7 +140,9 @@ func (p *RelaypinService) relayRequest(msg RelaypinMsg) error {
 		log.Debug("local is delay")
 
 		err := p.relayPeer(msg.peer, msg.key, msg.path)
-		log.Debugf(">>>>>>delay request err=[%v]", err)
+		if err != nil {
+			log.Errorf("delay request errer:%v", err)
+		}
 		return err
 
 	} else { // local is slave
@@ -147,15 +150,27 @@ func (p *RelaypinService) relayRequest(msg RelaypinMsg) error {
 
 		go func() {
 			file, _ := exec.LookPath(os.Args[0])
-			path, _ := filepath.Abs(file)
-			log.Debugf("path [%s]", path)
-			cmd := exec.Cmd{
-				Path: path,
-				Args: []string{"ipfs", "pin", "add", msg.path},
-			}
-			err := cmd.Run()
-			if err != nil {
-				log.Debug(err)
+			app := filepath.Clean(file)
+			app = filepath.ToSlash(app)
+			app = filepath.Base(app)
+			log.Debugf("relayRequest local work file[%v]", file)
+			if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+				// use ipfs
+				path, _ := filepath.Abs(file)
+				cmd := exec.Cmd{
+					Path: path,
+					Args: []string{"ipfs", "pin", "add", msg.path},
+				}
+				err := cmd.Run()
+				if err != nil {
+					log.Errorf("relaypin local work error:%v", err)
+				}
+			} else {
+				// use libipfs
+				_, _, err := p.ApiCmd.Cmd(strings.Join([]string{"ipfs", "pin", "add", msg.path}, "&X&"), 0)
+				if err != nil {
+					log.Errorf("relaypin local work error:%v", err)
+				}
 			}
 		}()
 	}
@@ -164,7 +179,8 @@ func (p *RelaypinService) relayRequest(msg RelaypinMsg) error {
 }
 
 func (ps *RelaypinService) relayPeer(p, key, fpath string) error {
-	log.Debugf(">>>>>>>>>relayPeer p[%v]", p)
+	log.Debugf("relayPeer remote[%v]", p)
+
 	_, pid, err := parsePeerParam(p)
 	if err != nil {
 		return fmt.Errorf("peer addr hash format error")
@@ -183,7 +199,6 @@ func (ps *RelaypinService) relayPeer(p, key, fpath string) error {
 
 	select {
 	case reerr := <-out:
-		log.Debug(">>>>>>>>> Relaypin return reerr=", reerr)
 		if reerr != nil {
 			return reerr
 		}
@@ -194,7 +209,6 @@ func (ps *RelaypinService) relayPeer(p, key, fpath string) error {
 }
 
 func (ps *RelaypinService) Relaypin(ctx context.Context, p peer.ID, key, peer, peerkey string, path path.Path, delay bool) (<-chan error, error) {
-	log.Debugf(">>>>>>>>[%v][%v][%v][%v][%v]", p, key, peer, peerkey, path)
 	s, err := ps.Host.NewStream(ctx, ID, p)
 	if err != nil {
 		return nil, err
@@ -207,11 +221,13 @@ func (ps *RelaypinService) Relaypin(ctx context.Context, p peer.ID, key, peer, p
 		case <-ctx.Done():
 			return
 		default:
-			log.Debug(">>>>>>>>>> call relaypin")
+			log.Debugf(">>>>>>>>[%v][%v][%v][%v][%v]", p, key, peer, peerkey, path)
 			_, err := relaypin(s, key, peer, peerkey, path, delay)
+			if err != nil {
+				log.Errorf("call relaypin remote error:%v", err)
+			}
 			select {
 			case out <- err:
-				log.Debug(">>>>>>>>>> call relaypin call back err=", err)
 			case <-ctx.Done():
 			}
 		}
@@ -227,7 +243,6 @@ func relaypin(s inet.Stream, key, peer, peerkey string, path path.Path, relay bo
 	}
 
 	msg := RelaypinMsg{relay, peer, peerkey, string(path)}
-	log.Debugf(">>>>>>>[%v]", msg)
 
 	orig := PKCS5Padding(msg.toByte(), aes.BlockSize)
 	md5hash := md5.Sum(orig)
@@ -237,6 +252,8 @@ func relaypin(s inet.Stream, key, peer, peerkey string, path path.Path, relay bo
 	}
 	buf := append(md5hash[:], crypted...)
 	buflen := len(buf)
+
+	log.Debugf("relaypin msg len[%d] buf[%v]", buflen, buf)
 
 	slen := make([]byte, 1)
 	slen[0] = byte(buflen)
@@ -256,14 +273,13 @@ func relaypin(s inet.Stream, key, peer, peerkey string, path path.Path, relay bo
 		return 0, err
 	}
 
-	log.Debugf(">>>>>rbuf[%v][%d]", rbuf, len(rbuf))
+	log.Debugf("relaypin msg recv len[%d] rbuf[%v]", len(rbuf), rbuf)
+
 	if !bytes.Equal(buf, rbuf) {
 		str := PKCS5UnPadding(rbuf)
-		log.Debugf(">>>>>relaypin error")
 		return 0, errors.New(string(str))
 	}
 
-	log.Debugf(">>>>>relaypin success")
 	return time.Now().Sub(before), nil
 }
 

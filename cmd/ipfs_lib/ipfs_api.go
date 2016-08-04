@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
 )
 
 const (
@@ -21,6 +23,19 @@ const (
 
 type statInfo struct {
 	Hash string
+}
+
+var GApiCmd apicmd
+
+type apicmd struct {
+}
+
+func (a apicmd) Cmd(str string, sec int) (int, string, error) {
+	return ipfsCmdTime(str, sec)
+}
+
+func init() {
+	apiinterface.GApiInterface = GApiCmd
 }
 
 func IpfsInit() (int, string) {
