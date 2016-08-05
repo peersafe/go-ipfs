@@ -70,7 +70,7 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
-			r, s, e = 1, "", errors.New("Excption error!!!!!!!!!!!!")
+			r, s, e = UNKOWN, "", errors.New("Excption error!!!!!!!!!!!!")
 		}
 	}()
 	rand.Seed(time.Now().UnixNano())
@@ -92,7 +92,7 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 
 	stopFunc, err := profileIfEnabled()
 	if err != nil {
-		return 1, printErr(err), err
+		return UNKOWN, printErr(err), err
 	}
 	defer stopFunc() // to be executed as late as possible
 
@@ -116,7 +116,7 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 	// Handle `ipfs help'
 	if len(args) == 2 && args[1] == "help" {
 		printHelp(false, &outBuf)
-		return 0, outBuf.String(), nil
+		return SUCCESS, outBuf.String(), nil
 	}
 
 	// parse the commandline into a command invocation
@@ -128,11 +128,11 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 	if invoc.req != nil {
 		longH, shortH, err := invoc.requestedHelp()
 		if err != nil {
-			return 1, printErr(err), err
+			return PARA_ERR, printErr(err), err
 		}
 		if longH || shortH {
 			printHelp(longH, &outBuf)
-			return 0, outBuf.String(), nil
+			return SUCCESS, outBuf.String(), nil
 		}
 	}
 
@@ -148,7 +148,7 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 			printHelp(false, &outBuf)
 			str = outBuf.String()
 		}
-		return 1, str, parseErr
+		return PARA_ERR, str, parseErr
 	}
 
 	// here we handle the cases where
@@ -156,7 +156,7 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 	// - the main command is invoked.
 	if invoc.cmd == nil || invoc.cmd.Run == nil {
 		printHelp(false, &outBuf)
-		return 0, outBuf.String(), nil
+		return SUCCESS, outBuf.String(), nil
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -177,15 +177,24 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 			printMetaHelp(&outBuf)
 			str = outBuf.String()
 		}
-		return 1, str, err
+		if isTimeout(err) {
+			return TIMEOUT, "Request timeout.", err
+		}
+		return SUCCESS, str, err
 	}
 
 	// everything went better than expected :)
 	_, err = io.Copy(&outBuf, output)
 	if err != nil {
-		return 1, printErr(err), err
+		return UNKOWN, printErr(err), err
 	}
-	return 0, outBuf.String(), nil
+
+	// timeout maybe return by api server
+	if strings.Contains(strings.ToLower(outBuf.String()), "timeout") {
+		return TIMEOUT, "Api server operation timeout.", errors.New("Api server operation timeout.")
+	}
+
+	return SUCCESS, outBuf.String(), nil
 }
 
 func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
@@ -351,7 +360,6 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 			}
 			return nil, wrapContextCanceled(err)
 		}
-
 	} else {
 		log.Debug("executing command locally")
 
@@ -653,4 +661,11 @@ func wrapContextCanceled(err error) error {
 		err = errRequestCanceled
 	}
 	return err
+}
+
+func isTimeout(err error) bool {
+	if strings.Contains(err.Error(), "request canceled") {
+		return true
+	}
+	return false
 }
