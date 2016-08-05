@@ -6,9 +6,11 @@
 
 void path(){
 	char res[255] = {0};
-	char* ipfsPath = "ipfsPath";
-	printf("%s\n",ipfsPath);
 
+	GoString ipfsPath;
+	ipfsPath.p = "ipfsPath";
+	ipfsPath.n = strlen(ipfsPath.p);
+	
 	GoInt ret = ipfs_path(ipfsPath,res);
 
 	printf("ipfs_path[%d][%s]\n", ret, res);
