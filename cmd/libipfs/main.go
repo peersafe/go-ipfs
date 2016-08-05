@@ -28,8 +28,8 @@ type statInfo struct {
 }
 
 //export ipfs_path
-func ipfs_path(path *C.char, out_res *C.char) int {
-	ret, str := ipfs_lib.IpfsPath(C.GoString(path))
+func ipfs_path(path string, out_res *C.char) int {
+	ret, str := ipfs_lib.IpfsPath(path)
 	if str != "" {
 		goStringToChar(str, out_res)
 	}
