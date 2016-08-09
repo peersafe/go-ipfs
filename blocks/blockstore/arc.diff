@@ -1,0 +1,26 @@
+diff --git a/arc.go b/arc_bak.go
+index d51c40e..fce85ae 100644
+--- a/arc.go
++++ b/arc_bak.go
+@@ -82,7 +82,7 @@ func (c *ARCCache) Get(key interface{}) (interface{}, bool) {
+ }
+
+ // Add adds a value to the cache.
+-func (c *ARCCache) Add(key, value interface{}) (removeKeys []interface{}) {
++func (c *ARCCache) Add(key, value interface{}) {
+        c.lock.Lock()
+        defer c.lock.Unlock()
+
+@@ -165,12 +165,10 @@ func (c *ARCCache) Add(key, value interface{}) (removeKeys []interface{}) {
+
+        // Keep the size of the ghost buffers trim
+        if c.b1.Len() > c.size-c.p {
+-               removeKey, _, _ := c.b1.RemoveOldest()
+-               removeKeys = append(removeKeys, removeKey)
++               c.b1.RemoveOldest()
+        }
+        if c.b2.Len() > c.p {
+-               removeKey, _, _ := c.b2.RemoveOldest()
+-               removeKeys = append(removeKeys, removeKey)
++               c.b2.RemoveOldest()
+        }

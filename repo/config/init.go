@@ -93,7 +93,8 @@ func datastoreConfig() (Datastore, error) {
 		StorageGCWatermark: 90, // 90%
 		GCPeriod:           "1h",
 		HashOnRead:         false,
-		BloomFilterSize:    0,
+		BloomFilterSize:    512 * 8 * 1024,
+		ARCCacheSize:       64 * 1024,
 	}, nil
 }
 

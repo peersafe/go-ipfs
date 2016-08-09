@@ -1,11 +1,12 @@
 package blockstore
 
 import (
-	"github.com/ipfs/go-ipfs/blocks"
-	key "github.com/ipfs/go-ipfs/blocks/key"
 	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
 	lru "gx/ipfs/QmVYxfoJQiZijTgPNHCHgHELvQpbsJNTg6Crmc3dQkj3yy/golang-lru"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+
+	"github.com/ipfs/go-ipfs/blocks"
+	key "github.com/ipfs/go-ipfs/blocks/key"
 )
 
 type arccache struct {
@@ -31,7 +32,8 @@ func (b *arccache) DeleteBlock(k key.Key) error {
 	err := b.blockstore.DeleteBlock(k)
 	switch err {
 	case nil, ds.ErrNotFound, ErrNotFound:
-		b.arc.Add(k, false)
+		removeKeys := b.arc.Add(k, false)
+		b.handleRemoveKeys(removeKeys)
 		return nil
 	default:
 		return err
@@ -60,8 +62,9 @@ func (b *arccache) Has(k key.Key) (bool, error) {
 	}
 
 	res, err := b.blockstore.Has(k)
-	if err == nil {
-		b.arc.Add(k, res)
+	if res {
+		removeKeys := b.arc.Add(k, res)
+		b.handleRemoveKeys(removeKeys)
 	}
 	return res, err
 }
@@ -71,12 +74,15 @@ func (b *arccache) Get(k key.Key) (blocks.Block, error) {
 		return nil, ErrNotFound
 	}
 
+	var removeKeys []interface{}
 	bl, err := b.blockstore.Get(k)
 	if bl == nil && err == ErrNotFound {
-		b.arc.Add(k, false)
+		removeKeys = b.arc.Add(k, false)
 	} else if bl != nil {
-		b.arc.Add(k, true)
+		removeKeys = b.arc.Add(k, true)
 	}
+	b.handleRemoveKeys(removeKeys)
+
 	return bl, err
 }
 
@@ -87,7 +93,8 @@ func (b *arccache) Put(bl blocks.Block) error {
 
 	err := b.blockstore.Put(bl)
 	if err == nil {
-		b.arc.Add(bl.Key(), true)
+		removeKeys := b.arc.Add(bl.Key(), true)
+		b.handleRemoveKeys(removeKeys)
 	}
 	return err
 }
@@ -104,7 +111,8 @@ func (b *arccache) PutMany(bs []blocks.Block) error {
 		return err
 	}
 	for _, block := range bs {
-		b.arc.Add(block.Key(), true)
+		removeKeys := b.arc.Add(block.Key(), true)
+		b.handleRemoveKeys(removeKeys)
 	}
 	return nil
 }
@@ -123,4 +131,13 @@ func (b *arccache) PinLock() Unlocker {
 
 func (b *arccache) GCRequested() bool {
 	return b.blockstore.(GCBlockstore).GCRequested()
+}
+
+func (b *arccache) handleRemoveKeys(removeKeys []interface{}) {
+	for _, v := range removeKeys {
+		if v != nil {
+			removeKey := v.(key.Key)
+			b.blockstore.DeleteBlock(removeKey)
+		}
+	}
 }
