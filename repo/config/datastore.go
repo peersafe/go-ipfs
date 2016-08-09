@@ -19,6 +19,7 @@ type Datastore struct {
 	NoSync          bool
 	HashOnRead      bool
 	BloomFilterSize int
+	ARCCacheSize    int
 }
 
 func (d *Datastore) ParamData() []byte {

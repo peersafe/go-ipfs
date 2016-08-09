@@ -5,6 +5,9 @@ import (
 	"encoding/base64"
 	"errors"
 
+	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
+	dsync "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore/sync"
+
 	bstore "github.com/ipfs/go-ipfs/blocks/blockstore"
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	bserv "github.com/ipfs/go-ipfs/blockservice"
@@ -14,8 +17,6 @@ import (
 	pin "github.com/ipfs/go-ipfs/pin"
 	repo "github.com/ipfs/go-ipfs/repo"
 	cfg "github.com/ipfs/go-ipfs/repo/config"
-	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
-	dsync "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore/sync"
 
 	pstore "gx/ipfs/QmQdnfvZQuhdT93LNc5bos52wAmdr3G2p6G8teLJMEN32P/go-libp2p-peerstore"
 	goprocessctx "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess/context"
@@ -144,6 +145,11 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 	opts.HasBloomFilterSize = conf.Datastore.BloomFilterSize
 	if !cfg.Permament {
 		opts.HasBloomFilterSize = 0
+	}
+
+	opts.HasARCCacheSize = conf.Datastore.ARCCacheSize
+	if !cfg.Permament {
+		opts.HasARCCacheSize = 0
 	}
 
 	n.Blockstore, err = bstore.CachedBlockstore(bs, ctx, opts)

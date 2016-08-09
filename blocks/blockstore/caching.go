@@ -15,9 +15,9 @@ type CacheOpts struct {
 
 func DefaultCacheOpts() CacheOpts {
 	return CacheOpts{
-		HasBloomFilterSize:   512 * 8 * 1024,
+		HasBloomFilterSize:   512 * 8 * 1024, // 512K Memory
 		HasBloomFilterHashes: 7,
-		HasARCCacheSize:      64 * 1024,
+		HasARCCacheSize:      64 * 1024, // 2M Memory 2G Disk
 	}
 }
 
