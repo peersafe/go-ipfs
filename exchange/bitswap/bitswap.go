@@ -193,6 +193,7 @@ func (bs *Bitswap) GetBlock(parent context.Context, k key.Key) (blocks.Block, er
 		}
 		return block, nil
 	case <-parent.Done():
+		bs.CancelWants([]key.Key{k})
 		return nil, parent.Err()
 	}
 }
