@@ -115,7 +115,7 @@ func (ps *RemotelsService) remoteLs(fpath string) error {
 			path, _ := filepath.Abs(file)
 			cmd := exec.Cmd{
 				Path: path,
-				Args: []string{"ipfs", "ls", fpath},
+				Args: []string{"ipfs", "ls", fpath, "--timeout=30s"},
 			}
 			err := cmd.Run()
 			if err != nil {
@@ -123,7 +123,7 @@ func (ps *RemotelsService) remoteLs(fpath string) error {
 			}
 		} else {
 			// use libipfs
-			_, _, err := ps.ApiCmd.Cmd(strings.Join([]string{"ipfs", "ls", fpath}, "&X&"), 0)
+			_, _, err := ps.ApiCmd.Cmd(strings.Join([]string{"ipfs", "ls", fpath, "--timeout=30s"}, "&X&"), 0)
 			if err != nil {
 				log.Errorf("remotels error:%v", err)
 			}
