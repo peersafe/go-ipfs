@@ -302,6 +302,7 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 	defer func() {
 		// We wait for the node to close first, as the node has children
 		// that it will wait for before closing, such as the API server.
+		node.Closer <- struct{}{}
 		node.Close()
 
 		select {

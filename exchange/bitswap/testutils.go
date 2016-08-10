@@ -3,16 +3,17 @@ package bitswap
 import (
 	"time"
 
-	blockstore "github.com/ipfs/go-ipfs/blocks/blockstore"
-	tn "github.com/ipfs/go-ipfs/exchange/bitswap/testnet"
-	datastore2 "github.com/ipfs/go-ipfs/thirdparty/datastore2"
-	delay "github.com/ipfs/go-ipfs/thirdparty/delay"
-	testutil "github.com/ipfs/go-ipfs/thirdparty/testutil"
 	peer "gx/ipfs/QmRBqJF7hb8ZSpRcMwUt8hNhydWcxGEhtk81HKq6oUwKvs/go-libp2p-peer"
 	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
 	ds_sync "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore/sync"
 	p2ptestutil "gx/ipfs/QmVCe3SNMjkcPgnpFhZs719dheq6xE7gJwjzV7aWcUM4Ms/go-libp2p/p2p/test/util"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+
+	blockstore "github.com/ipfs/go-ipfs/blocks/blockstore"
+	tn "github.com/ipfs/go-ipfs/exchange/bitswap/testnet"
+	datastore2 "github.com/ipfs/go-ipfs/thirdparty/datastore2"
+	delay "github.com/ipfs/go-ipfs/thirdparty/delay"
+	testutil "github.com/ipfs/go-ipfs/thirdparty/testutil"
 )
 
 // WARNING: this uses RandTestBogusIdentity DO NOT USE for NON TESTS!
@@ -93,10 +94,22 @@ func Session(ctx context.Context, net tn.Network, p testutil.Identity) Instance 
 	adapter := net.Adapter(p)
 	dstore := ds_sync.MutexWrap(datastore2.WithDelay(ds.NewMapDatastore(), bsdelay))
 
-	bstore, err := blockstore.CachedBlockstore(blockstore.NewBlockstore(
+	bstore, removeKeys, err := blockstore.CachedBlockstore(blockstore.NewBlockstore(
 		ds_sync.MutexWrap(dstore)), ctx, blockstore.DefaultCacheOpts())
 	if err != nil {
 		panic(err.Error()) // FIXME perhaps change signature and return error.
+	}
+	if removeKeys != nil {
+		go func() {
+			for {
+				select {
+				case <-removeKeys:
+				case <-ctx.Done():
+					close(removeKeys)
+					return
+				}
+			}
+		}()
 	}
 
 	const alwaysSendToPeer = true

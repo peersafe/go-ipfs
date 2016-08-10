@@ -1,7 +1,6 @@
 package blockstore
 
 import (
-	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
 	lru "gx/ipfs/QmVYxfoJQiZijTgPNHCHgHELvQpbsJNTg6Crmc3dQkj3yy/golang-lru"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
@@ -9,18 +8,24 @@ import (
 	key "github.com/ipfs/go-ipfs/blocks/key"
 )
 
+const (
+	RemoveChanSize = 1024
+)
+
 type arccache struct {
 	arc        *lru.ARCCache
 	blockstore Blockstore
+	removeKeys chan key.Key
 }
 
-func arcCached(bs Blockstore, lruSize int) (*arccache, error) {
+func arcCached(bs Blockstore, lruSize int) (*arccache, chan key.Key, error) {
 	arc, err := lru.NewARC(lruSize)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &arccache{arc: arc, blockstore: bs}, nil
+	removeKeys := make(chan key.Key, RemoveChanSize)
+	return &arccache{arc: arc, blockstore: bs, removeKeys: removeKeys}, removeKeys, nil
 }
 
 func (b *arccache) DeleteBlock(k key.Key) error {
@@ -30,14 +35,10 @@ func (b *arccache) DeleteBlock(k key.Key) error {
 
 	b.arc.Remove(k) // Invalidate cache before deleting.
 	err := b.blockstore.DeleteBlock(k)
-	switch err {
-	case nil, ds.ErrNotFound, ErrNotFound:
-		removeKeys := b.arc.Add(k, false)
-		b.handleRemoveKeys(removeKeys)
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
+	return nil
 }
 
 // if ok == false has is inconclusive
@@ -137,7 +138,9 @@ func (b *arccache) handleRemoveKeys(removeKeys []interface{}) {
 	for _, v := range removeKeys {
 		if v != nil {
 			removeKey := v.(key.Key)
-			b.blockstore.DeleteBlock(removeKey)
+			if removeKey.String() != "" {
+				b.removeKeys <- removeKey
+			}
 		}
 	}
 }

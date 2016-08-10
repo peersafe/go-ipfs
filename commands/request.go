@@ -84,7 +84,6 @@ type Request interface {
 	Values() map[string]interface{}
 	Stdin() io.Reader
 	VarArgs(func(string) error) error
-	IsLib() bool
 	SetCancelFunc(context.CancelFunc)
 	CancelFunc() context.CancelFunc
 
@@ -208,10 +207,6 @@ func (r *request) SetFiles(f files.File) {
 
 func (r *request) Context() context.Context {
 	return r.rctx
-}
-
-func (r *request) IsLib() bool {
-	return r.islib
 }
 
 func (r *request) SetCancelFunc(cancel context.CancelFunc) {
