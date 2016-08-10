@@ -112,6 +112,7 @@ func NewNode(ctx context.Context, cfg *BuildCfg) (*IpfsNode, error) {
 		Repo:      cfg.Repo,
 		ctx:       ctx,
 		Peerstore: pstore.NewPeerstore(),
+		Closer:    make(chan struct{}),
 	}
 	if cfg.Online {
 		n.mode = onlineMode
@@ -119,7 +120,6 @@ func NewNode(ctx context.Context, cfg *BuildCfg) (*IpfsNode, error) {
 
 	// TODO: this is a weird circular-ish dependency, rework it
 	n.proc = goprocessctx.WithContextAndTeardown(ctx, n.teardown)
-
 	if err := setupNode(ctx, n, cfg); err != nil {
 		n.Close()
 		return nil, err
@@ -152,10 +152,11 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 		opts.HasARCCacheSize = 0
 	}
 
-	n.Blockstore, err = bstore.CachedBlockstore(bs, ctx, opts)
+	blockstore, removeKeys, err := bstore.CachedBlockstore(bs, ctx, opts)
 	if err != nil {
 		return err
 	}
+	n.Blockstore = blockstore
 
 	rcfg, err := n.Repo.Config()
 	if err != nil {
@@ -190,6 +191,25 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 	err = n.loadFilesRoot()
 	if err != nil {
 		return err
+	}
+
+	if cfg.Online && removeKeys != nil {
+		go func() {
+			for {
+				select {
+				case removeKey := <-removeKeys:
+					if _, pin, _ := n.Pinning.IsPinned(removeKey); !pin {
+						err := n.Blockstore.DeleteBlock(removeKey)
+						if err != nil {
+							log.Errorf("delete block err:%v\n", err)
+						}
+					}
+				case <-n.Closer:
+					close(removeKeys)
+					return
+				}
+			}
+		}()
 	}
 
 	return nil

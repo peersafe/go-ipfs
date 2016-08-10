@@ -123,7 +123,8 @@ type IpfsNode struct {
 	proc goprocess.Process
 	ctx  context.Context
 
-	mode mode
+	mode   mode
+	Closer chan struct{}
 }
 
 // Mounts defines what the node's mount state is. This should
