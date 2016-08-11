@@ -137,10 +137,24 @@ func (p *RelaypinService) relayRequest(msg RelaypinMsg) error {
 	if msg.delay { // local is master
 		log.Debug("local is delay")
 
+		go func() {
+			file, _ := exec.LookPath(os.Args[0])
+			path, _ := filepath.Abs(file)
+			cmd := exec.Cmd{
+				Path: path,
+				Args: []string{"ipfs", "ls", msg.path},
+			}
+			err := cmd.Run()
+			if err != nil {
+				log.Errorf("relaypin ls work error:%v", err)
+			}
+		}()
+
 		err := p.relayPeer(msg.peer, msg.key, msg.path)
 		if err != nil {
-			log.Errorf("delay request errer:%v", err)
+			log.Errorf("relay request errer:%v", err)
 		}
+
 		return err
 
 	} else { // local is slave
