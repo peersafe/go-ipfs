@@ -225,6 +225,7 @@ You can now refer to the added file in a gateway, like so:
 		if res.Error() != nil {
 			return
 		}
+
 		outChan, ok := res.Output().(<-chan interface{})
 		if !ok {
 			res.SetError(u.ErrCast(), cmds.ErrNormal)

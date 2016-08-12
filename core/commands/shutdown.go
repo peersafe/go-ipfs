@@ -22,10 +22,13 @@ var ShutdownCmd = &cmds.Command{
 func shutdownFunc(req cmds.Request, res cmds.Response) {
 	result := "Shutdown Daemon!"
 
-	defer req.CancelFunc()()
-
 	shutdown := ShutDown{
 		Result: result,
 	}
 	res.SetOutput(&shutdown)
+	node, _ := req.InvocContext().GetNode()
+	send, _, _ := req.InvocContext().GetAsyncChan()
+
+	close(*send) // close chan return corechan for
+	node.Close()
 }

@@ -25,10 +25,9 @@ var log = logging.Logger("commands/http")
 
 // the internal handler for the API
 type internalHandler struct {
-	ctx    cmds.Context
-	root   *cmds.Command
-	cfg    *ServerConfig
-	cancel context.CancelFunc
+	ctx  cmds.Context
+	root *cmds.Command
+	cfg  *ServerConfig
 }
 
 // The Handler struct is funny because we want to wrap our internal handler
@@ -98,7 +97,7 @@ func skipAPIHeader(h string) bool {
 	}
 }
 
-func NewHandler(ctx cmds.Context, root *cmds.Command, cfg *ServerConfig, cancel context.CancelFunc) http.Handler {
+func NewHandler(ctx cmds.Context, root *cmds.Command, cfg *ServerConfig) http.Handler {
 	if cfg == nil {
 		panic("must provide a valid ServerConfig")
 	}
@@ -109,10 +108,9 @@ func NewHandler(ctx cmds.Context, root *cmds.Command, cfg *ServerConfig, cancel 
 	// Wrap the internal handler with CORS handling-middleware.
 	// Create a handler for the API.
 	internal := internalHandler{
-		ctx:    ctx,
-		root:   root,
-		cfg:    cfg,
-		cancel: cancel,
+		ctx:  ctx,
+		root: root,
+		cfg:  cfg,
 	}
 	c := cors.New(*cfg.cORSOpts)
 	return &Handler{internal, c.Handler(internal)}
@@ -186,7 +184,6 @@ func (i internalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.SetCancelFunc(i.cancel)
 	// call the command
 	res := i.root.Call(req)
 

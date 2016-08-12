@@ -30,6 +30,8 @@ type Context struct {
 
 	node          *core.IpfsNode
 	ConstructNode func() (*core.IpfsNode, error)
+
+	GetAsyncChan func() (*(chan<- Request), *(<-chan Request), error)
 }
 
 // GetConfig returns the config of the current Command exection
@@ -64,6 +66,10 @@ func (c *Context) NodeWithoutConstructing() *core.IpfsNode {
 	return c.node
 }
 
+type CallFunc interface {
+	Call(string, error)
+}
+
 // Request represents a call to a command from a consumer
 type Request interface {
 	Path() []string
@@ -84,8 +90,8 @@ type Request interface {
 	Values() map[string]interface{}
 	Stdin() io.Reader
 	VarArgs(func(string) error) error
-	SetCancelFunc(context.CancelFunc)
-	CancelFunc() context.CancelFunc
+	SetCallFunc(CallFunc)
+	CallFunc() CallFunc
 
 	ConvertOptions() error
 }
@@ -102,7 +108,7 @@ type request struct {
 	values     map[string]interface{}
 	stdin      io.Reader
 	islib      bool
-	cancelFunc context.CancelFunc
+	callFunc   CallFunc
 }
 
 // Path returns the command path of this request
@@ -209,12 +215,12 @@ func (r *request) Context() context.Context {
 	return r.rctx
 }
 
-func (r *request) SetCancelFunc(cancel context.CancelFunc) {
-	r.cancelFunc = cancel
+func (r *request) SetCallFunc(call CallFunc) {
+	r.callFunc = call
 }
 
-func (r *request) CancelFunc() context.CancelFunc {
-	return r.cancelFunc
+func (r *request) CallFunc() CallFunc {
+	return r.callFunc
 }
 
 func (r *request) haveVarArgsFromStdin() bool {

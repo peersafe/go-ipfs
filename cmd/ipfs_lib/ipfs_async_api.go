@@ -2,59 +2,40 @@ package ipfs_lib
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
+	"github.com/ipfs/go-ipfs/commands"
 )
 
-const (
-	keyLen   int = 1596
-	cmdSep       = "&X&"
-	endsep       = "\n"
-	SUCCESS      = 0
-	PARA_ERR     = -1
-	TIMEOUT      = -2
-	UNKOWN       = -3
-)
+var asyncApiIns Instance
 
-var ipfsPath string
-
-type statInfo struct {
-	Hash string
+func InitApi() {
+	asyncApiIns = NewInstance()
 }
 
-var GApiCmd apicmd
-
-type apicmd struct {
+func AsyncCmd(cmd string, call commands.CallFunc) (int, string, error) {
+	return asyncApiIns.AsyncApi(cmd, call)
 }
 
-func (a apicmd) Cmd(str string, sec int) (int, string, error) {
-	return ipfsCmdTime(str, sec)
-}
+var ipfsAsyncPath string
 
-func init() {
-	apiinterface.GApiInterface = GApiCmd
-}
-
-func IpfsPath(path string) (int, string) {
+func IpfsAsyncPath(path string) (int, string) {
 	if path != "" {
-		ipfsPath = path
+		ipfsAsyncPath = path
 		return SUCCESS, ""
 	}
 	return PARA_ERR, "path is nil"
 }
 
-func IpfsInit() (int, string) {
+func IpfsAsyncInit(call commands.CallFunc) (int, string) {
 	cmd := strings.Join([]string{"ipfs", "init", "-e"}, cmdSep)
 	fmt.Println(cmd)
-	ret, str, err := ipfsCmd(cmd)
+	ret, str, err := ipfsAsyncCmd(cmd, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -68,9 +49,9 @@ func IpfsInit() (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsDaemon() (int, string) {
+func IpfsAsyncDaemon(call commands.CallFunc) (int, string) {
 	cmd := strings.Join([]string{"ipfs", "daemon"}, cmdSep)
-	ret, str, err := ipfsCmd(cmd)
+	ret, str, err := ipfsAsyncCmd(cmd, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -80,9 +61,9 @@ func IpfsDaemon() (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsShutDown() (int, string) {
+func IpfsAsyncShutDown(call commands.CallFunc) (int, string) {
 	cmd := strings.Join([]string{"ipfs", "shutdown"}, cmdSep)
-	ret, str, err := ipfsCmd(cmd)
+	ret, str, err := ipfsAsyncCmd(cmd, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -92,9 +73,9 @@ func IpfsShutDown() (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsId(second int) (int, string) {
+func IpfsAsyncId(second int, call commands.CallFunc) (int, string) {
 	cmd := strings.Join([]string{"ipfs", "id"}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -104,7 +85,15 @@ func IpfsId(second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
+type Mycall struct {
+	myCall func(string, error)
+}
+
+func (call *Mycall) Call(result string, err error) {
+	call.myCall(result, err)
+}
+
+func IpfsAsyncAdd(root_hash, ipfs_path, os_path string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
@@ -122,8 +111,17 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 		return PARA_ERR, ""
 	}
 
-	var addHash string
 	var ret int
+
+	myCall := &Mycall{}
+	myCall.myCall = func(result string, err error) {
+		if err != nil {
+			call.Call(result, err)
+		}
+		ipfs_path = path.Clean(ipfs_path)
+		cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, result}, cmdSep)
+		ipfsAsyncCmdTime(cmd, second, call)
+	}
 	if len(os_path) != 0 {
 		os_path, err := filepath.Abs(path.Clean(os_path))
 		if err != nil {
@@ -137,36 +135,26 @@ func IpfsAdd(root_hash, ipfs_path, os_path string, second int) (int, string) {
 			return PARA_ERR, ""
 		}
 
-		cmdSuff := ""
+		cmd := ""
 		if fi.Mode().IsDir() {
-			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", "-r", os_path}, cmdSep)
+			cmd = strings.Join([]string{"ipfs", "add", "--is-lib=true", "-r", os_path}, cmdSep)
 		} else if fi.Mode().IsRegular() {
-			cmdSuff = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
+			cmd = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
 		} else {
 			fmt.Println("Unkown file type!")
 			return UNKOWN, ""
 		}
 
-		ret, addHash, err = ipfsCmdTime(cmdSuff, second)
+		ret, _, err = ipfsAsyncCmdTime(cmd, second, myCall)
 		if err != nil {
 			fmt.Println(err)
 			return ret, ""
 		}
 	}
-
-	ipfs_path = path.Clean(ipfs_path)
-	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, addHash}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
-	if err != nil {
-		fmt.Println(err)
-		return ret, ""
-	}
-
-	str = strings.Trim(str, endsep)
-	return SUCCESS, str
+	return SUCCESS, ""
 }
 
-func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
+func IpfsAsyncDelete(root_hash, ipfs_path string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
@@ -185,7 +173,7 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", root_hash, ipfs_path}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -195,7 +183,7 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, string) {
+func IpfsAsyncMove(root_hash, ipfs_path_src, ipfs_path_des string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
@@ -229,40 +217,46 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 		object_path = ipfs_path_src[1 : len(ipfs_path_src)-1]
 	}
 
+	myCall := &Mycall{}
+	myCall.myCall = func(result string, err error) {
+		if err != nil {
+			call.Call(result, err)
+		}
+
+		var nodeStat statInfo
+		err = json.Unmarshal([]byte(result), &nodeStat)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		nodeStat.Hash = strings.Trim(nodeStat.Hash, endsep)
+
+		callPatch := &Mycall{}
+		callPatch.myCall = func(result string, err error) {
+			if err != nil {
+				call.Call(result, err)
+			}
+			newHash := strings.Trim(result, endsep)
+			delCmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", newHash, ipfs_path_src}, cmdSep)
+			ipfsAsyncCmdTime(delCmd, second, call)
+		}
+		addCmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path_des, nodeStat.Hash}, cmdSep)
+		_, _, err = ipfsAsyncCmdTime(addCmd, second, callPatch)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
 	statCmd := strings.Join([]string{"ipfs", "object", "stat", "--is-lib=true", root_hash + "/" + object_path}, cmdSep)
-	ret, statStr, err := ipfsCmdTime(statCmd, second)
+	ret, _, err := ipfsAsyncCmdTime(statCmd, second, myCall)
 	if err != nil {
 		return ret, ""
 	}
 
-	var nodeStat statInfo
-	err = json.Unmarshal([]byte(statStr), &nodeStat)
-	if err != nil {
-		fmt.Println(err)
-		return PARA_ERR, ""
-	}
-	nodeStat.Hash = strings.Trim(nodeStat.Hash, endsep)
-
-	addCmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path_des, nodeStat.Hash}, cmdSep)
-	ret, newHash, err := ipfsCmdTime(addCmd, second)
-	if err != nil {
-		fmt.Println(err)
-		return ret, ""
-	}
-
-	newHash = strings.Trim(newHash, endsep)
-	delCmd := strings.Join([]string{"ipfs", "object", "patch", "rm-link", newHash, ipfs_path_src}, cmdSep)
-	ret, new_root_hash, err := ipfsCmdTime(delCmd, second)
-	if err != nil {
-		fmt.Println(err)
-		return ret, ""
-	}
-
-	new_root_hash = strings.Trim(new_root_hash, endsep)
-	return SUCCESS, new_root_hash
+	return SUCCESS, ""
 }
 
-func IpfsShard(object_hash, shard_name string, second int) (int, string) {
+func IpfsAsyncShard(object_hash, shard_name string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
 		fmt.Println("object_hash len not 46")
@@ -281,7 +275,7 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", shard_name, object_hash}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -291,7 +285,7 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsGet(shard_hash, os_path string, second int) int {
+func IpfsAsyncGet(shard_hash, os_path string, second int, call commands.CallFunc) int {
 	var err error
 	if shard_hash, err = ipfsHashCheck(shard_hash); err != nil {
 		fmt.Println("shard_hash format error")
@@ -309,7 +303,7 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "get", shard_hash, "-o", os_path}, cmdSep)
-	ret, _, err := ipfsCmdTime(cmd, second)
+	ret, _, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret
@@ -317,7 +311,7 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 	return SUCCESS
 }
 
-func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
+func IpfsAsyncQuery(object_hash, ipfs_path string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if object_hash, err = ipfsHashCheck(object_hash); err != nil {
 		fmt.Println("object_hash len not 46")
@@ -331,24 +325,34 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	ipfs_path = ipfs_path[1:]
 
 	if len(ipfs_path) != 0 {
+		callStat := &Mycall{}
+		callStat.myCall = func(result string, err error) {
+			if err != nil {
+				call.Call(result, err)
+			}
+
+			var nodeStat statInfo
+			err = json.Unmarshal([]byte(result), &nodeStat)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			object_hash = strings.Trim(nodeStat.Hash, endsep)
+			cmd := strings.Join([]string{"ipfs", "ls", "--is-lib=true", object_hash}, cmdSep)
+			ipfsAsyncCmdTime(cmd, second, call)
+		}
 		statCmd := strings.Join([]string{"ipfs", "object", "stat", "--is-lib=true", object_hash + "/" + ipfs_path}, cmdSep)
-		ret, statStr, err := ipfsCmdTime(statCmd, second)
+		ret, _, err := ipfsAsyncCmdTime(statCmd, second, callStat)
 		if err != nil {
 			fmt.Println(err)
 			return ret, ""
 		}
 
-		var nodeStat statInfo
-		err = json.Unmarshal([]byte(statStr), &nodeStat)
-		if err != nil {
-			fmt.Println(err)
-			return PARA_ERR, ""
-		}
-		object_hash = strings.Trim(nodeStat.Hash, endsep)
+		return SUCCESS, ""
 	}
 
 	cmd := strings.Join([]string{"ipfs", "ls", "--is-lib=true", object_hash}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -358,7 +362,7 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string) {
+func IpfsAsyncMerge(root_hash, ipfs_path, shard_hash string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
@@ -381,7 +385,7 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 	}
 
 	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, shard_hash}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -391,26 +395,23 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 	return SUCCESS, str
 }
 
-func IpfsPeerid(new_id string, second int) (int, string) {
+func IpfsAsyncPeerid(new_id string, second int, call commands.CallFunc) (int, string) {
 	if err := ipfsPeeridCheck(new_id); len(new_id) != 0 && err != nil {
 		fmt.Println("new_id len is not 46 or is not 0")
 		return PARA_ERR, ""
 	}
 
 	cmd := strings.Join([]string{"ipfs", "config", "Identity.PeerID"}, cmdSep)
-	ret, peeId, err := ipfsCmdTime(cmd, second)
+
+	if len(new_id) != 0 {
+		cmd = strings.Join([]string{cmd, new_id}, cmdSep)
+	}
+	ret, peeId, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
 	}
-
 	if len(new_id) != 0 {
-		cmd = strings.Join([]string{cmd, new_id}, cmdSep)
-		ret, _, err := ipfsCmdTime(cmd, second)
-		if err != nil {
-			fmt.Println(err)
-			return ret, ""
-		}
 		peeId = new_id
 	}
 
@@ -418,21 +419,18 @@ func IpfsPeerid(new_id string, second int) (int, string) {
 	return SUCCESS, peeId
 }
 
-func IpfsPrivkey(new_key string, second int) (int, string) {
+func IpfsAsyncPrivkey(new_key string, second int, call commands.CallFunc) (int, string) {
 	cmd := strings.Join([]string{"ipfs", "config", "Identity.PrivKey"}, cmdSep)
-	ret, key, err := ipfsCmdTime(cmd, second)
+
+	if len(new_key) != 0 {
+		cmd = strings.Join([]string{cmd, new_key}, cmdSep)
+	}
+	ret, key, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
 	}
-
 	if len(new_key) != 0 {
-		cmd := strings.Join([]string{cmd, new_key}, cmdSep)
-		ret, _, err := ipfsCmdTime(cmd, second)
-		if err != nil {
-			fmt.Println(err)
-			return ret, ""
-		}
 		key = new_key
 	}
 
@@ -440,7 +438,7 @@ func IpfsPrivkey(new_key string, second int) (int, string) {
 	return SUCCESS, key
 }
 
-func IpfsPublish(object_hash string, second int) (int, string) {
+func IpfsAsyncPublish(object_hash string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
 		fmt.Println("object_hash len is not 52")
@@ -448,7 +446,7 @@ func IpfsPublish(object_hash string, second int) (int, string) {
 	}
 
 	cmd := strings.Join([]string{"ipfs", "name", "publish", "--is-lib=true", object_hash}, cmdSep)
-	ret, hash, err := ipfsCmdTime(cmd, second)
+	ret, hash, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -458,14 +456,14 @@ func IpfsPublish(object_hash string, second int) (int, string) {
 	return SUCCESS, hash
 }
 
-func IpfsConnectPeer(peer_addr string, second int) (int, string) {
+func IpfsAsyncConnectPeer(peer_addr string, second int, call commands.CallFunc) (int, string) {
 	if len(peer_addr) == 0 {
 		fmt.Println("peer_addr len is 0")
 		return PARA_ERR, ""
 	}
 
 	cmd := strings.Join([]string{"ipfs", "swarm", "connect", peer_addr}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -474,7 +472,7 @@ func IpfsConnectPeer(peer_addr string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsConfig(key, value string) (int, string) {
+func IpfsAsyncConfig(key, value string, call commands.CallFunc) (int, string) {
 	var cmd string
 	if len(key) == 0 {
 		cmd = strings.Join([]string{"ipfs", "config", "show"}, cmdSep)
@@ -484,7 +482,7 @@ func IpfsConfig(key, value string) (int, string) {
 		cmd = strings.Join([]string{"ipfs", "config", key, value}, cmdSep)
 	}
 
-	ret, str, err := ipfsCmd(cmd)
+	ret, str, err := ipfsAsyncCmd(cmd, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -494,7 +492,7 @@ func IpfsConfig(key, value string) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (int, string) {
+func IpfsAsyncRemotepin(peer_id, peer_key, object_hash string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if err = ipfsPeeridCheck(peer_id); err != nil {
 		fmt.Println("peer_id len is not 46")
@@ -511,7 +509,7 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (int, stri
 
 	cmd := strings.Join([]string{"ipfs", "remotepin", peer_id, peer_key, object_hash}, cmdSep)
 
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -521,7 +519,7 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (int, stri
 	return SUCCESS, str
 }
 
-func IpfsRelaypin(relay_id, relay_key, peer_id, peer_key, object_hash string, second int) (int, string) {
+func IpfsAsyncRelaypin(relay_id, relay_key, peer_id, peer_key, object_hash string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if err = ipfsPeeridCheck(relay_id); err != nil {
 		fmt.Println("relay_id len is not 46")
@@ -549,7 +547,7 @@ func IpfsRelaypin(relay_id, relay_key, peer_id, peer_key, object_hash string, se
 	}
 
 	cmd := strings.Join([]string{"ipfs", "relaypin", relay_id, relay_key, peer_id, peer_key, object_hash}, cmdSep)
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -559,7 +557,7 @@ func IpfsRelaypin(relay_id, relay_key, peer_id, peer_key, object_hash string, se
 	return SUCCESS, str
 }
 
-func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (int, string) {
+func IpfsAsyncRemotels(peer_id, peer_key, object_hash string, second int, call commands.CallFunc) (int, string) {
 	var err error
 	if err = ipfsPeeridCheck(peer_id); err != nil {
 		fmt.Println("peer_id len is not 46")
@@ -576,7 +574,7 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (int, strin
 
 	cmd := strings.Join([]string{"ipfs", "remotels", peer_id, peer_key, object_hash}, cmdSep)
 
-	ret, str, err := ipfsCmdTime(cmd, second)
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -586,8 +584,8 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (int, strin
 	return SUCCESS, str
 }
 
-func IpfsCmdApi(cmd string, second int) (int, string) {
-	ret, str, err := ipfsCmdTime(cmd, second)
+func IpfsAsyncCmdApi(cmd string, second int, call commands.CallFunc) (int, string) {
+	ret, str, err := ipfsAsyncCmdTime(cmd, second, call)
 	if err != nil {
 		fmt.Println(err)
 		return ret, ""
@@ -597,12 +595,12 @@ func IpfsCmdApi(cmd string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func ipfsCmd(cmd string) (int, string, error) {
-	return ipfsCmdTime(cmd, 0)
+func ipfsAsyncCmd(cmd string, call commands.CallFunc) (int, string, error) {
+	return ipfsAsyncCmdTime(cmd, 0, call)
 }
 
-func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
-	if len(strings.Trim(ipfsPath, " ")) > 0 {
+func ipfsAsyncCmdTime(cmd string, second int, call commands.CallFunc) (r int, s string, e error) {
+	if len(strings.Trim(ipfsAsyncPath, " ")) > 0 {
 		if second != 0 {
 			timeout := "--timeout=" + strconv.Itoa(second) + "s"
 			cmd = strings.Join([]string{cmd, "-c", ipfsPath, timeout}, cmdSep)
@@ -612,59 +610,5 @@ func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
 		}
 	}
 	fmt.Println(cmd)
-	return ipfsMain(cmd)
-}
-
-func ipfsPathClean(ipfsPath string) (string, error) {
-	if !strings.HasPrefix(ipfsPath, "/") {
-		return "", errors.New("must prefix is /")
-	}
-
-	path := ipfsPath[1:]
-	if strings.HasPrefix(path, "-") {
-		path = "\"" + path + "\""
-	}
-	return path, nil
-}
-
-func ipfsPeerkeyCheck(peerkey string) error {
-	matchstr := "^[a-zA-Z0-9-`=\\\\\\[\\];'\",./~!@#$%^&*()_+|{}:<>?]{8}$"
-	if matched, err := regexp.MatchString(matchstr, peerkey); err != nil || !matched {
-		return fmt.Errorf("invalid peerkey format")
-	}
-	return nil
-}
-
-func ipfsPeeridCheck(peerid string) error {
-	matchstr := "^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46}$"
-	if matched, err := regexp.MatchString(matchstr, peerid); err != nil || !matched {
-		return fmt.Errorf("invalid peerid format")
-	}
-	return nil
-}
-
-func ipfsObjectHashCheck(hash string) (string, error) {
-	matchstr := "^((/ipfs/|addr://)?" +
-		"[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46})$"
-	if matched, err := regexp.MatchString(matchstr, hash); err != nil || !matched {
-		return "", fmt.Errorf("hash format error")
-	}
-	if strings.HasPrefix(hash, "addr://") {
-		hash = strings.Replace(hash, "addr://", "/ipfs/", 1)
-	}
-	return hash, nil
-}
-
-func ipfsHashCheck(hash string) (string, error) {
-	matchstr := "^((/ipfs/|/ipns/|peer://|addr://)?" +
-		"[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{46})$"
-	if matched, err := regexp.MatchString(matchstr, hash); err != nil || !matched {
-		return "", fmt.Errorf("hash format error")
-	}
-	if strings.HasPrefix(hash, "peer://") {
-		hash = strings.Replace(hash, "peer://", "/ipns/", 1)
-	} else if strings.HasPrefix(hash, "addr://") {
-		hash = strings.Replace(hash, "addr://", "/ipfs/", 1)
-	}
-	return hash, nil
+	return AsyncCmd(cmd, call)
 }
