@@ -118,6 +118,7 @@ func IpfsAsyncAdd(root_hash, ipfs_path, os_path string, second int, call command
 		if err != nil {
 			call.Call(result, err)
 		}
+
 		ipfs_path = path.Clean(ipfs_path)
 		cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, result}, cmdSep)
 		ipfsAsyncCmdTime(cmd, second, call)
@@ -603,9 +604,9 @@ func ipfsAsyncCmdTime(cmd string, second int, call commands.CallFunc) (r int, s 
 	if len(strings.Trim(ipfsAsyncPath, " ")) > 0 {
 		if second != 0 {
 			timeout := "--timeout=" + strconv.Itoa(second) + "s"
-			cmd = strings.Join([]string{cmd, "-c", ipfsPath, timeout}, cmdSep)
+			cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath, timeout}, cmdSep)
 		} else {
-			cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
+			cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath}, cmdSep)
 
 		}
 	}
