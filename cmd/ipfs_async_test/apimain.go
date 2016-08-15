@@ -20,11 +20,12 @@ func main() {
 	var wg sync.WaitGroup
 	done :=make(chan struct{})
 
-	// async init
-	ipfs_lib.InitApi()
 
 	// path
 	ipfs_lib.IpfsAsyncPath("ipfs_home")
+	
+	// async init
+	ipfs_lib.InitApi()
 
 	// init
 	ipfs_lib.IpfsAsyncInit(call)
