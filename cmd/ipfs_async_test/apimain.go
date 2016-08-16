@@ -67,11 +67,12 @@ func main() {
 	done := make(chan struct{}, 1)
 	st := make(chan struct{})
 
-	// async init
-	ipfs_lib.InitApi()
 
 	// path
 	ipfs_lib.IpfsAsyncPath("ipfs_home")
+	
+	// async init
+	ipfs_lib.InitApi()
 
 	callinit := new(MyCall)
 	callinit.call = func(str string, err error) {
