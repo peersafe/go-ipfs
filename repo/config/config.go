@@ -95,7 +95,9 @@ func FromMap(v map[string]interface{}) (*Config, error) {
 		return nil, err
 	}
 	var conf Config
-	if err := json.NewDecoder(buf).Decode(&conf); err != nil {
+	d := json.NewDecoder(buf)
+	d.UseNumber()
+	if err := d.Decode(&conf); err != nil {
 		return nil, fmt.Errorf("Failure to decode config: %s", err)
 	}
 	return &conf, nil
@@ -107,7 +109,9 @@ func ToMap(conf *Config) (map[string]interface{}, error) {
 		return nil, err
 	}
 	var m map[string]interface{}
-	if err := json.NewDecoder(buf).Decode(&m); err != nil {
+	d := json.NewDecoder(buf)
+	d.UseNumber()
+	if err := d.Decode(&m); err != nil {
 		return nil, fmt.Errorf("Failure to decode config: %s", err)
 	}
 	return m, nil
