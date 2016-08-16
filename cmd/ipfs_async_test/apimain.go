@@ -2,23 +2,70 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"sync"
+	"time"
 
 	ipfs_lib "github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 )
 
 type MyCall struct {
+	call func(string, error)
 }
 
-func (call *MyCall) Call(result string, err error) {
-	fmt.Printf("result=%v,=======,err=%v\n", result, err)
+func (c *MyCall) Call(result string, err error) {
+	c.call(result, err)
+}
+
+func ipfsAsyncPeerid() {
+	fmt.Println("======================================== ipfsAsyncPeerid =========================================")
+	st := make(chan struct{})
+	call := new(MyCall)
+	call.call = func(str string, err error) {
+		fmt.Printf("********Call back*******[%v][%v]\n\n\n************************************************************\n\n", str, err)
+		st <- struct{}{}
+
+	}
+
+	// peerid
+	if ret, str := ipfs_lib.IpfsAsyncPeerid("", 5, call); ret != ipfs_lib.SUCCESS {
+		fmt.Println(">>>>>>>>", str)
+		go call.call("", nil)
+	}
+	<-st
+
+	if ret, str := ipfs_lib.IpfsAsyncPeerid("hello-heipi", 5, call); ret != ipfs_lib.SUCCESS {
+		fmt.Println(">>>>>>>>", str)
+		go call.call("", nil)
+	}
+	<-st
+
+	if ret, str := ipfs_lib.IpfsAsyncPeerid("QmV3wPSkRkwnLckMyFYFEvap4jUv36jm71BkuCX6Tqufbv", 5, call); ret != ipfs_lib.SUCCESS {
+		fmt.Println(">>>>>>>>", str)
+		go call.call("", nil)
+	}
+	<-st
+
+	if ret, str := ipfs_lib.IpfsAsyncPeerid("QmV3wPSkRkwnLckMyFYFEvap4jUv36jm71BkuCX6TqufbV", 5, call); ret != ipfs_lib.SUCCESS {
+		fmt.Println(">>>>>>>>", str)
+		go call.call("", nil)
+	}
+	<-st
+
+	// peerid
+	if ret, str := ipfs_lib.IpfsAsyncPeerid("", 5, call); ret != ipfs_lib.SUCCESS {
+		fmt.Println(">>>>>>>>", str)
+		go call.call("", nil)
+	}
+	<-st
+
+	fmt.Println("==================================================================================================")
+	fmt.Println("==================================================================================================")
 }
 
 func main() {
-	call := new(MyCall)
 	var wg sync.WaitGroup
-	done :=make(chan struct{})
+	done := make(chan struct{}, 1)
+	st := make(chan struct{})
 
 	// async init
 	ipfs_lib.InitApi()
@@ -26,117 +73,75 @@ func main() {
 	// path
 	ipfs_lib.IpfsAsyncPath("ipfs_home")
 
+	callinit := new(MyCall)
+	callinit.call = func(str string, err error) {
+		fmt.Println("init call")
+	}
+
 	// init
-	ipfs_lib.IpfsAsyncInit(call)
+	ipfs_lib.IpfsAsyncInit(callinit)
 
 	// daemon
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
-		
 
-		ipfs_lib.IpfsAsyncDaemon(call)
+		ipfs_lib.IpfsAsyncDaemon(callinit)
 		done <- struct{}{}
 	}()
 
 	// id
-	go func () {
-		wg.Add(1)
-		defer wg.Done()
+	time.Sleep(15 * time.Second)
 
-		// wait for daemon start
-		time.Sleep(10*time.Second)
-		ipfs_lib.IpfsAsyncId(5,call)
-	}()
+	call := new(MyCall)
+	call.call = func(str string, err error) {
+		fmt.Printf("********Call back*******[%v][%v]\n\n\n************************************************************\n\n", str, err)
+		st <- struct{}{}
 
-	// peerid
-	go func () {
-		wg.Add(1)
-		defer wg.Done()
+	}
 
-		// wait for daemon start
-		time.Sleep(10*time.Second)
-		ipfs_lib.IpfsAsyncPeerid("",5,call)
+	if ret, str := ipfs_lib.IpfsAsyncId(5, call); ret != ipfs_lib.SUCCESS {
+		fmt.Println(">>>>>>>>", str)
+		go call.call("", nil)
+	}
+	<-st
 
-		ipfs_lib.IpfsAsyncPeerid("hello-heipi",5,call)
+	ipfsAsyncPeerid()
 
-		ipfs_lib.IpfsAsyncPeerid("",5,call)
-	}()
+	// // privkey
+	// ipfs_lib.IpfsAsyncPrivkey("", 5, call)
+	// <-st
 
-	// privkey
-	go func () {
-		wg.Add(1)
-		defer wg.Done()
+	// ipfs_lib.IpfsAsyncPrivkey("mykey", 5, call)
+	// <-st
 
-		// wait for daemon start
-		time.Sleep(10*time.Second)
-		ipfs_lib.IpfsAsyncPrivkey("",5,call)
+	// ipfs_lib.IpfsAsyncPrivkey("", 5, call)
+	// <-st
 
-		ipfs_lib.IpfsAsyncPrivkey("mykey",5,call)
+	// // add
+	// ipfs_lib.IpfsAsyncAdd("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/xyz", "apimain.go", 5, call)
+	// <-st
 
-		ipfs_lib.IpfsAsyncPrivkey("",5,call)
-	}()
+	// // move
+	// ipfs_lib.IpfsAsyncAdd("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/xyz", "/zyx", 5, call)
+	// <-st
 
-	// add
-	go func(){
-		wg.Add(1)
-		defer wg.Done()
+	// // get
+	// ipfs_lib.IpfsAsyncGet("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "./getBlock", 5, call)
+	// <-st
 
-		// wait for daemon start
-		time.Sleep(10*time.Second)
-		ipfs_lib.IpfsAsyncAdd("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn","/xyz","apimain.go",5,call)
-	}()
+	// // query
+	// ipfs_lib.IpfsAsyncQuery("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "/", 5, call)
+	// <-st
 
-	// move
-	go func(){
-		wg.Add(1)
-		defer wg.Done()
+	// // delete
+	// ipfs_lib.IpfsAsyncDelete("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/zyx", 5, call)
+	// <-st
 
-		// wait for add done 
-		time.Sleep(15*time.Second)
-		ipfs_lib.IpfsAsyncAdd("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn","/xyz","/zyx",5,call)
-	}()
+	// // shutdown
+	// ipfs_lib.IpfsAsyncShutDown(call)
+	// <-st
 
-	// get
-	go func(){
-		wg.Add(1)
-		defer wg.Done()
-
-		// wait for daemon start 
-		time.Sleep(10*time.Second)
-		ipfs_lib.IpfsAsyncGet("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi","./getBlock",5,call)
-	}()
-
-	// query
-	go func(){
-		wg.Add(1)
-		defer wg.Done()
-
-		// wait for daemon start
-		time.Sleep(10*time.Second)
-		ipfs_lib.IpfsAsyncQuery("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi","/",5,call)
-	}()
-	
-
-	// delete
-	go func(){
-		wg.Add(1)
-		defer wg.Done()
-
-		// wait for move done
-		time.Sleep(20*time.Second)
-		ipfs_lib.IpfsAsyncDelete("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn","/zyx",5,call)
-	}()
-	
-	// shutdown
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		// wait for all goroutine done
-		time.Sleep(30 * time.Second)
-		ipfs_lib.IpfsAsyncShutDown(call)
-	}()
 	wg.Wait()
 	<-done
 }
-

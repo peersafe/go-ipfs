@@ -76,6 +76,12 @@ func NewInstance() Instance {
 		(chan<- cmds.Request)(asyncChan),
 		(<-chan cmds.Request)(asyncChan),
 	}
+
+	logging.SetLogLevel("cmd/ipfs_lib", "debug")
+	logging.SetLogLevel("core/asyncserver", "debug")
+	logging.SetLogLevel("commands/asyncchan", "debug")
+	//logging.SetDebugLogging()
+
 	return &apiInstance
 }
 
@@ -94,10 +100,6 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.CallFunc) (r int, s strin
 	var invoc cmdInvocation
 	defer invoc.close()
 	var outBuf bytes.Buffer
-
-	logging.SetLogLevel("cmd/ipfs_lib", "debug")
-	logging.SetLogLevel("core/asyncserver", "debug")
-	logging.SetLogLevel("commands/asyncchan", "debug")
 
 	invoc.asyncIns = ins
 
