@@ -82,6 +82,11 @@ func Ipfs_async_add(root_hash, ipfs_path, os_path string, second int) string {
 	return fmt.Sprintf("%d%s%s", res, cmdSep, str)
 }
 
+func Ipfs_async_move(root_hash, ipfs_src_path, ipfs_dst_path string, second int) string {
+	res, str := IpfsAsyncMove(root_hash, ipfs_src_path, ipfs_dst_path, second)
+	return fmt.Sprintf("%d%s%s", res, cmdSep, str)
+}
+
 func Ipfs_async_get(share_hash, os_path string, second int) string {
 	res := IpfsAsyncGet(share_hash, os_path, second)
 	return fmt.Sprintf("%d%s%s", res, cmdSep, "")

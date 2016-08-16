@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
+)
 
 type CallBack struct {
 }
@@ -16,6 +20,7 @@ func (call *CallBack) ShutDown(code int, reason string) {
 }
 func (call *CallBack) Id(code int, reason, id string) {
 	fmt.Printf("func=[Id],code=[%v],reason=[%v],id=[%v]\n", code, reason, id)
+	ipfs_lib.Ipfs_async_peerid(id, 10)
 }
 func (call *CallBack) Add(code int, reason, new_root, ipfs_path, file_path, add_hash string) {
 	fmt.Printf("func=[Add],code=[%v],reason=[%v],new_root=[%v],ipfs_path=[%v],file_path=[%v],,add_hash=[%v]\n",

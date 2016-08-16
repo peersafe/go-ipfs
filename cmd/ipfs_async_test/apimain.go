@@ -65,54 +65,54 @@ func main() {
 	// }()
 
 	// add
+	// go func() {
+	// 	wg.Add(1)
+	// 	defer wg.Done()
+
+	// 	// wait for daemon start
+	// 	time.Sleep(15 * time.Second)
+	// 	ipfs_lib.Ipfs_async_add("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/", "apimain.go", 5)
+	// }()
+
+	// move
+	// go func() {
+	// 	wg.Add(1)
+	// 	defer wg.Done()
+
+	// 	// wait for add done
+	// 	time.Sleep(15 * time.Second)
+	// 	ipfs_lib.Ipfs_async_move("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/", "/zyx", 5)
+	// }()
+
+	// get
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
 
 		// wait for daemon start
-		time.Sleep(15 * time.Second)
-		ipfs_lib.Ipfs_async_add("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/", "apimain.go", 5)
+		time.Sleep(10 * time.Second)
+		ipfs_lib.Ipfs_async_get("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "getBlock", 5)
 	}()
 	/*
-		// move
+		// query
 		go func() {
 			wg.Add(1)
 			defer wg.Done()
 
-			// wait for add done
-			time.Sleep(15 * time.Second)
-			ipfs_lib.IpfsAsyncAdd("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/xyz", "/zyx", 5, call)
+			// wait for daemon start
+			time.Sleep(10 * time.Second)
+			ipfs_lib.IpfsAsyncQuery("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "/", 5, call)
 		}()
 
-			// get
-			go func() {
-				wg.Add(1)
-				defer wg.Done()
+		// delete
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
 
-				// wait for daemon start
-				time.Sleep(10 * time.Second)
-				ipfs_lib.IpfsAsyncGet("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "getBlock", 5, call)
-			}()
-
-			// query
-			go func() {
-				wg.Add(1)
-				defer wg.Done()
-
-				// wait for daemon start
-				time.Sleep(10 * time.Second)
-				ipfs_lib.IpfsAsyncQuery("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "/", 5, call)
-			}()
-
-			// delete
-			go func() {
-				wg.Add(1)
-				defer wg.Done()
-
-				// wait for move done
-				time.Sleep(20 * time.Second)
-				ipfs_lib.IpfsAsyncDelete("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/zyx", 5, call)
-			}()
+			// wait for move done
+			time.Sleep(20 * time.Second)
+			ipfs_lib.IpfsAsyncDelete("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/zyx", 5, call)
+		}()
 	*/
 
 	// shutdown
