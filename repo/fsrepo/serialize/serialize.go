@@ -23,7 +23,9 @@ func ReadConfigFile(filename string, cfg interface{}) error {
 		return err
 	}
 	defer f.Close()
-	if err := json.NewDecoder(f).Decode(cfg); err != nil {
+	d := json.NewDecoder(f)
+	d.UseNumber()
+	if err := d.Decode(cfg); err != nil {
 		return fmt.Errorf("Failure to decode config: %s", err)
 	}
 	return nil
