@@ -91,6 +91,12 @@ func (i internalHandler) ServeAsyncChan(req cmds.Request) {
 		return
 	}
 
+	// if res.Output() != nil {
+	// 	output := res.Output().(string)
+	// 	fmt.Println("res.Output=", output)
+	// 	req.CallFunc().Call(output, nil)
+	// }
+
 	out, err := res.Reader()
 	if err != nil {
 		log.Errorf("res.Reader failed! %v", err)

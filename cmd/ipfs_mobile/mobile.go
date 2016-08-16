@@ -5,71 +5,64 @@
 // Package hello is a trivial package for gomobile bind example.
 package ipfsmobile
 
-import (
-	ipfslib "github.com/ipfs/go-ipfs/cmd/ipfs_lib"
-	"github.com/ipfs/go-ipfs/commands"
-)
+import ipfslib "github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 
-type CmdCall interface {
-	commands.CallFunc
-}
-
-func IpfsCmd(cmd string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_cmd_arm(cmd, second, call)
+type IpfsCallBack interface {
+	ipfslib.IpfsCallBack
 }
 
 func IpfsPath(path string) string {
 	return ipfslib.Ipfs_async_path(path)
 }
 
-func IpfsInit(call CmdCall) string {
+func IpfsInit(call IpfsCallBack) string {
 	return ipfslib.Ipfs_async_init(call)
 }
 
-func IpfsDaemon(call CmdCall) string {
-	return ipfslib.Ipfs_async_daemon(call)
+func IpfsDaemon() string {
+	return ipfslib.Ipfs_async_daemon()
 }
 
-func IpfsShutdown(call CmdCall) string {
-	return ipfslib.Ipfs_async_shutdown(call)
+func IpfsShutdown() string {
+	return ipfslib.Ipfs_async_shutdown()
 }
 
-func IpfsId(second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_id(second, call)
+func IpfsId(second int) string {
+	return ipfslib.Ipfs_async_id(second)
 }
 
-func IpfsPeerid(new_id string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_peerid(new_id, second, call)
+func IpfsPeerid(new_id string, second int) string {
+	return ipfslib.Ipfs_async_peerid(new_id, second)
 }
 
-func IpfsPrivkey(new_key string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_privkey(new_key, second, call)
+func IpfsPrivkey(new_key string, second int) string {
+	return ipfslib.Ipfs_async_privkey(new_key, second)
 }
 
-func IpfsAdd(os_path string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_add(os_path, second, call)
+func IpfsAdd(os_path string, second int) string {
+	return ipfslib.Ipfs_async_add(os_path, second)
 }
 
-func IpfsGet(object_hash, os_path string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_get(object_hash, os_path, second, call)
+func IpfsGet(object_hash, os_path string, second int) string {
+	return ipfslib.Ipfs_async_get(object_hash, os_path, second)
 }
 
-func IpfsPublish(object_hash string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_publish(object_hash, second, call)
+func IpfsPublish(object_hash string, second int) string {
+	return ipfslib.Ipfs_async_publish(object_hash, second)
 }
 
-func IpfsConfig(key, value string, call CmdCall) string {
-	return ipfslib.Ipfs_async_config(key, value, call)
+func IpfsConfig(key, value string) string {
+	return ipfslib.Ipfs_async_config(key, value)
 }
 
-func IpfsRemotepin(peer_id, peer_key, object_hash string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_remotepin(peer_id, peer_key, object_hash, second, call)
+func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) string {
+	return ipfslib.Ipfs_async_remotepin(peer_id, peer_key, object_hash, second)
 }
 
-func IpfsRemotels(peer_id, peer_key, object_hash string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_remotels(peer_id, peer_key, object_hash, second, call)
+func IpfsRemotels(peer_id, peer_key, object_hash string, second int) string {
+	return ipfslib.Ipfs_async_remotels(peer_id, peer_key, object_hash, second)
 }
 
-func IpfsConnectpeer(remote_peer string, second int, call CmdCall) string {
-	return ipfslib.Ipfs_async_connectpeer(remote_peer, second, call)
+func IpfsConnectpeer(remote_peer string, second int) string {
+	return ipfslib.Ipfs_async_connectpeer(remote_peer, second)
 }

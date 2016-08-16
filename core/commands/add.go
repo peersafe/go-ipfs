@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
 	"gx/ipfs/QmeWjRodbcZFKe5tMN7poEx3izym6osrLSnTLf9UjJZBbs/pb"
 
@@ -33,6 +35,7 @@ const (
 	chunkerOptionName  = "chunker"
 	pinOptionName      = "pin"
 	islibOptionName    = "is-lib"
+	cmdSep             = "&X&"
 )
 
 var AddCmd = &cmds.Command{
@@ -293,15 +296,22 @@ You can now refer to the added file in a gateway, like so:
 						fmt.Fprintf(res.Stderr(), "\033[2K\r")
 					}
 					if quiet {
-						if !islib {
-							fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
-						}
+						fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
 					} else {
 						if !islib {
 							fmt.Fprintf(res.Stdout(), "added %s %s\n", output.Hash, output.Name)
+						} else {
+							outBuf := new(bytes.Buffer)
+							if req.InvocContext().GetAsyncChan != nil {
+								fmt.Fprintf(res.Stdout(), "%s\n", strings.Join([]string{"Over", output.Hash, output.Name}, cmdSep))
+								fmt.Fprintf(outBuf, "%s", strings.Join([]string{"Over", output.Hash, output.Name}, cmdSep))
+							} else {
+								fmt.Fprintf(res.Stdout(), "%s\n", output.Hash)
+								fmt.Fprintf(outBuf, "%s", output.Hash)
+							}
+							res.SetOutput(bytes.NewReader(outBuf.Bytes()))
 						}
 					}
-
 				} else {
 					log.Debugf("add progress: %v %v\n", output.Name, output.Bytes)
 
@@ -323,13 +333,12 @@ You can now refer to the added file in a gateway, like so:
 
 				if progress {
 					bar.Update()
+					if req.InvocContext().GetAsyncChan != nil {
+						out := strings.Join([]string{strconv.FormatInt(bar.Total, 10), strconv.FormatInt(bar.GetCurrent(), 10)}, cmdSep)
+						req.CallFunc().Call(out, nil)
+					}
 				}
 
-				if islib {
-					outBuf := new(bytes.Buffer)
-					fmt.Fprintf(outBuf, "%s", output.Hash)
-					res.SetOutput(bytes.NewReader(outBuf.Bytes()))
-				}
 			case size := <-sizeChan:
 				if progress {
 					bar.Total = size

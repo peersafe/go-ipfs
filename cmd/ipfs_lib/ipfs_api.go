@@ -291,10 +291,10 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsGet(shard_hash, os_path string, second int) int {
+func IpfsGet(share_hash, os_path string, second int) int {
 	var err error
-	if shard_hash, err = ipfsHashCheck(shard_hash); err != nil {
-		fmt.Println("shard_hash format error")
+	if share_hash, err = ipfsHashCheck(share_hash); err != nil {
+		fmt.Println("share_hash format error")
 		return PARA_ERR
 	}
 	if len(os_path) == 0 {
@@ -308,7 +308,7 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 		return PARA_ERR
 	}
 
-	cmd := strings.Join([]string{"ipfs", "get", shard_hash, "-o", os_path}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
 	ret, _, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -358,14 +358,14 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string) {
+func IpfsMerge(root_hash, ipfs_path, share_hash string, second int) (int, string) {
 	var err error
 	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
 		return PARA_ERR, ""
 	}
-	if shard_hash, err = ipfsObjectHashCheck(shard_hash); err != nil {
-		fmt.Println("shard_hash len not 46")
+	if share_hash, err = ipfsObjectHashCheck(share_hash); err != nil {
+		fmt.Println("share_hash len not 46")
 		return PARA_ERR, ""
 	}
 
@@ -380,7 +380,7 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 		return PARA_ERR, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, shard_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, share_hash}, cmdSep)
 	ret, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
