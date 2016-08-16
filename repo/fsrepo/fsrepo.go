@@ -427,7 +427,13 @@ func (r *FSRepo) setConfigUnsynced(updated *config.Config) error {
 	for k, v := range m {
 		mapconf[k] = v
 	}
-	if err := serialize.WriteConfigFile(configFilename, mapconf); err != nil {
+
+	conf, err := config.FromMap(mapconf)
+	if err != nil {
+		return err
+	}
+
+	if err := serialize.WriteConfigFile(configFilename, conf); err != nil {
 		return err
 	}
 	*r.config = *updated // copy so caller cannot modify this private config
@@ -529,7 +535,7 @@ func (r *FSRepo) SetConfigKey(key string, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := serialize.WriteConfigFile(filename, mapconf); err != nil {
+	if err := serialize.WriteConfigFile(filename, conf); err != nil {
 		return err
 	}
 	return r.setConfigUnsynced(conf) // TODO roll this into this method
