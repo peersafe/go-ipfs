@@ -123,6 +123,7 @@ func main() {
 		time.Sleep(30 * time.Second)
 		ipfs_lib.Ipfs_async_shutdown()
 	}()
+
 	<-done
 	wg.Wait()
 }
