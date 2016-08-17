@@ -54,38 +54,44 @@ const (
 )
 
 type cmdInvocation struct {
-	path     []string
-	cmd      *cmds.Command
-	req      cmds.Request
-	node     *core.IpfsNode
-	asyncIns *apiInstance
+	path []string
+	cmd  *cmds.Command
+	req  cmds.Request
+	node *core.IpfsNode
 }
 
 type apiInstance struct {
 	asyncChanSend chan<- cmds.Request
 	asyncChanRecv <-chan cmds.Request
+	ipfsAsyncPath string
 }
 
 type Instance interface {
-	AsyncApi(cmd string, call cmds.CallFunc) (r int, s string, e error)
+	AsyncApi(cmd string, call cmds.RequestCB) (r int, s string, e error)
+	AsyncPath() string
+	SetAsyncPath(string)
 }
 
-func NewInstance() Instance {
+func NewInstance(path string) Instance {
 	asyncChan := make(chan cmds.Request, 1024)
 	apiInstance := apiInstance{
 		(chan<- cmds.Request)(asyncChan),
 		(<-chan cmds.Request)(asyncChan),
+		path,
 	}
-
-	logging.SetLogLevel("cmd/ipfs_lib", "debug")
-	logging.SetLogLevel("core/asyncserver", "debug")
-	logging.SetLogLevel("commands/asyncchan", "debug")
-	//logging.SetDebugLogging()
 
 	return &apiInstance
 }
 
-func (ins *apiInstance) AsyncApi(cmd string, call cmds.CallFunc) (r int, s string, e error) {
+func (ins *apiInstance) AsyncPath() string {
+	return ins.ipfsAsyncPath
+}
+
+func (ins *apiInstance) SetAsyncPath(path string) {
+	ins.ipfsAsyncPath = path
+}
+
+func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB) (r int, s string, e error) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Errorf("async_daemon error:%v", err)
@@ -100,8 +106,6 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.CallFunc) (r int, s strin
 	var invoc cmdInvocation
 	defer invoc.close()
 	var outBuf bytes.Buffer
-
-	invoc.asyncIns = ins
 
 	// this is so we control how to print errors in one place.
 	printErr := func(err error) string {
@@ -123,7 +127,10 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.CallFunc) (r int, s strin
 		return PARA_ERR, str, parseErr
 	}
 
-	invoc.req.SetCallFunc(call)
+	invoc.req.InvocContext().GetAsyncChan = func() (*(chan<- cmds.Request), *(<-chan cmds.Request), error) {
+		return &ins.asyncChanSend, &ins.asyncChanRecv, nil
+	}
+	*(invoc.req.CallBack()) = call
 
 	output, err := invoc.Run(ctx)
 	if err != nil {
@@ -171,8 +178,6 @@ func ipfsMain(cmd string) (r int, s string, e error) {
 	var invoc cmdInvocation
 	var outBuf bytes.Buffer
 	defer invoc.close()
-
-	invoc.asyncIns = nil
 
 	// we'll call this local helper to output errors.
 	// this is so we control how to print errors in one place.
@@ -295,7 +300,7 @@ func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
 		u.Debug = true
 	}
 
-	res, err := callCommand(ctx, i.req, Root, i.cmd, i.asyncIns)
+	res, err := callCommand(ctx, i.req, Root, i.cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +407,7 @@ func callPreCommandHooks(ctx context.Context, details cmdDetails, req cmds.Reque
 	return nil
 }
 
-func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command, ins *apiInstance) (cmds.Response, error) {
+func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command) (cmds.Response, error) {
 	log.Info(config.EnvDir, " ", req.InvocContext().ConfigRoot)
 	var res cmds.Response
 
@@ -416,7 +421,7 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 		return nil, err
 	}
 
-	client, err := commandShouldRunOnDaemon(*details, req, root, ins)
+	client, err := commandShouldRunOnDaemon(*details, req, root)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +460,7 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 
 	}
 
-	if cmd.PostRun != nil && ins == nil {
+	if cmd.PostRun != nil && req.InvocContext().GetAsyncChan == nil {
 		cmd.PostRun(req, res)
 	}
 
@@ -490,7 +495,7 @@ func commandDetails(path []string, root *cmds.Command) (*cmdDetails, error) {
 // It returns a client if the command should be executed on a daemon and nil if
 // it should be executed on a client. It returns an error if the command must
 // NOT be executed on either.
-func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.Command, ins *apiInstance) (cmds.Client, error) {
+func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.Command) (cmds.Client, error) {
 	path := req.Path()
 	// root command.
 	if len(path) < 1 {
@@ -515,13 +520,10 @@ func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.C
 	}
 
 	var client cmds.Client
-	if ins == nil {
+	if req.InvocContext().GetAsyncChan == nil {
 		client, err = getApiClient(req.InvocContext().ConfigRoot, apiAddrStr)
 	} else {
 		client, err = getAsyncApiClient(req.InvocContext().ConfigRoot, apiAddrStr)
-		req.InvocContext().GetAsyncChan = func() (*(chan<- cmds.Request), *(<-chan cmds.Request), error) {
-			return &ins.asyncChanSend, &ins.asyncChanRecv, nil
-		}
 	}
 
 	if err == repo.ErrApiNotRunning {

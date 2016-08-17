@@ -30,17 +30,11 @@ type statInfo struct {
 	Hash string
 }
 
-var GApiCmd apicmd
-
 type apicmd struct {
 }
 
 func (a apicmd) Cmd(str string, sec int) (int, string, error) {
 	return ipfsCmdTime(str, sec)
-}
-
-func init() {
-	apiinterface.GApiInterface = GApiCmd
 }
 
 func IpfsPath(path string) (int, string) {
@@ -69,6 +63,11 @@ func IpfsInit() (int, string) {
 }
 
 func IpfsDaemon() (int, string) {
+	// init apiinterface for remote cmds
+	if apiinterface.GApiInterface == nil {
+		apiinterface.GApiInterface = new(apicmd)
+	}
+
 	cmd := strings.Join([]string{"ipfs", "daemon"}, cmdSep)
 	ret, str, err := ipfsCmd(cmd)
 	if err != nil {
@@ -621,6 +620,9 @@ func ipfsPathClean(ipfsPath string) (string, error) {
 	}
 
 	path := ipfsPath[1:]
+	if len(path) <= 0 {
+		return "", errors.New("ipfs path is nil!")
+	}
 	if strings.HasPrefix(path, "-") {
 		path = "\"" + path + "\""
 	}

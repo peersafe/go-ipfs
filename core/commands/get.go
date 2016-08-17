@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	gopath "path"
+	"strconv"
 	"strings"
+	"time"
 
 	"gx/ipfs/QmeWjRodbcZFKe5tMN7poEx3izym6osrLSnTLf9UjJZBbs/pb"
 
@@ -19,6 +21,7 @@ import (
 )
 
 var ErrInvalidCompressionLevel = errors.New("Compression level must be between 1 and 9")
+var reqProgress cmds.Request
 
 var GetCmd = &cmds.Command{
 	Helptext: cmds.HelpText{
@@ -114,7 +117,7 @@ may also specify the level of compression by specifying '-l=<1-9>'.
 			Size:        int64(res.Length()),
 		}
 
-		if err := gw.Write(outReader, outPath); err != nil {
+		if err := gw.Write(outReader, outPath, req); err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
@@ -135,7 +138,7 @@ func (r *clearlineReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func progressBarForReader(out io.Writer, r io.Reader, l int64) (*pb.ProgressBar, io.Reader) {
+func progressBarForReader(out io.Writer, r io.Reader, l int64, req cmds.Request) (*pb.ProgressBar, io.Reader) {
 	// setup bar reader
 	// TODO: get total length of files
 	bar := pb.New64(l).SetUnits(pb.U_BYTES)
@@ -148,6 +151,20 @@ func progressBarForReader(out io.Writer, r io.Reader, l int64) (*pb.ProgressBar,
 		bar.Callback = nil
 		log.Infof("terminal width: %v\n", terminalWidth)
 	}
+
+	go func() {
+		for {
+			if bar.GetFinish() {
+				(*req.CallBack())("Over", nil)
+				return
+			} else {
+				result := strings.Join([]string{strconv.FormatInt(bar.Total, 10), strconv.FormatInt(bar.GetCurrent(), 10)}, cmdSep)
+				(*req.CallBack())(result, nil)
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}()
+
 	barR := bar.NewProxyReader(r)
 	return bar, &clearlineReader{barR, out}
 }
@@ -161,14 +178,14 @@ type getWriter struct {
 	Size        int64
 }
 
-func (gw *getWriter) Write(r io.Reader, fpath string) error {
+func (gw *getWriter) Write(r io.Reader, fpath string, req cmds.Request) error {
 	if gw.Archive || gw.Compression != gzip.NoCompression {
-		return gw.writeArchive(r, fpath)
+		return gw.writeArchive(r, fpath, req)
 	}
-	return gw.writeExtracted(r, fpath)
+	return gw.writeExtracted(r, fpath, req)
 }
 
-func (gw *getWriter) writeArchive(r io.Reader, fpath string) error {
+func (gw *getWriter) writeArchive(r io.Reader, fpath string, req cmds.Request) error {
 	// adjust file name if tar
 	if gw.Archive {
 		if !strings.HasSuffix(fpath, ".tar") && !strings.HasSuffix(fpath, ".tar.gz") {
@@ -191,17 +208,18 @@ func (gw *getWriter) writeArchive(r io.Reader, fpath string) error {
 	defer file.Close()
 
 	fmt.Fprintf(gw.Out, "Saving archive to %s\n", fpath)
-	bar, barR := progressBarForReader(gw.Err, r, gw.Size)
+	bar, barR := progressBarForReader(gw.Err, r, gw.Size, req)
 	bar.Start()
+
 	defer bar.Finish()
 
 	_, err = io.Copy(file, barR)
 	return err
 }
 
-func (gw *getWriter) writeExtracted(r io.Reader, fpath string) error {
+func (gw *getWriter) writeExtracted(r io.Reader, fpath string, req cmds.Request) error {
 	fmt.Fprintf(gw.Out, "Saving file(s) to %s\n", fpath)
-	bar, barR := progressBarForReader(gw.Err, r, gw.Size)
+	bar, barR := progressBarForReader(gw.Err, r, gw.Size, req)
 	bar.Start()
 	defer bar.Finish()
 

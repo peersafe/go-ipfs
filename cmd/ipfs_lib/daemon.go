@@ -307,6 +307,11 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 		node.Closer <- struct{}{}
 		node.Close()
 
+		if req.InvocContext().GetAsyncChan != nil {
+			// daemon shutdown
+			(*req.CallBack())("Shutdown", nil)
+		}
+
 		select {
 		case <-req.Context().Done():
 			log.Info("Gracefully shut down daemon")
@@ -372,6 +377,12 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 	prometheus.EnableCollectChecks(true)
 
 	fmt.Printf("Daemon is ready\n")
+
+	if req.InvocContext().GetAsyncChan != nil {
+		// daemon start call
+		(*req.CallBack())("Start", nil)
+	}
+
 	// collect long-running errors and block for shutdown
 	// TODO(cryptix): our fuse currently doesnt follow this pattern for graceful shutdown
 	for err := range merge(errc...) {

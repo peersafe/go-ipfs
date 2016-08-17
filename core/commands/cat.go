@@ -56,7 +56,7 @@ var CatCmd = &cmds.Command{
 			return
 		}
 
-		bar, reader := progressBarForReader(res.Stderr(), res.Output().(io.Reader), int64(res.Length()))
+		bar, reader := progressBarForReader(res.Stderr(), res.Output().(io.Reader), int64(res.Length()), req)
 		bar.Start()
 
 		res.SetOutput(reader)

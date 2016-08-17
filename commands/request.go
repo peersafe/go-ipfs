@@ -66,9 +66,7 @@ func (c *Context) NodeWithoutConstructing() *core.IpfsNode {
 	return c.node
 }
 
-type CallFunc interface {
-	Call(string, error)
-}
+type RequestCB func(string, error)
 
 // Request represents a call to a command from a consumer
 type Request interface {
@@ -90,8 +88,7 @@ type Request interface {
 	Values() map[string]interface{}
 	Stdin() io.Reader
 	VarArgs(func(string) error) error
-	SetCallFunc(CallFunc)
-	CallFunc() CallFunc
+	CallBack() *RequestCB
 
 	ConvertOptions() error
 }
@@ -108,7 +105,7 @@ type request struct {
 	values     map[string]interface{}
 	stdin      io.Reader
 	islib      bool
-	callFunc   CallFunc
+	callBack   RequestCB
 }
 
 // Path returns the command path of this request
@@ -215,12 +212,8 @@ func (r *request) Context() context.Context {
 	return r.rctx
 }
 
-func (r *request) SetCallFunc(call CallFunc) {
-	r.callFunc = call
-}
-
-func (r *request) CallFunc() CallFunc {
-	return r.callFunc
+func (r *request) CallBack() *RequestCB {
+	return &(*r).callBack
 }
 
 func (r *request) haveVarArgsFromStdin() bool {

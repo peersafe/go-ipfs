@@ -60,7 +60,7 @@ func (i internalHandler) ServeAsyncChan(req cmds.Request) {
 	node, err := i.ctx.GetNode()
 	if err != nil {
 		log.Errorf("cmds/http: couldn't GetNode():%s", err)
-		req.CallFunc().Call("", err)
+		(*req.CallBack())("", err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (i internalHandler) ServeAsyncChan(req cmds.Request) {
 	err = req.SetRootContext(ctx)
 	if err != nil {
 		log.Errorf("setRootContext failed! %v", err)
-		req.CallFunc().Call("", err)
+		(*req.CallBack())("", err)
 		return
 	}
 
@@ -87,29 +87,23 @@ func (i internalHandler) ServeAsyncChan(req cmds.Request) {
 
 	if err := res.Error(); err != nil {
 		log.Errorf("root Call failed! %v", err)
-		req.CallFunc().Call("", err)
+		(*req.CallBack())("", err)
 		return
 	}
-
-	// if res.Output() != nil {
-	// 	output := res.Output().(string)
-	// 	fmt.Println("res.Output=", output)
-	// 	req.CallFunc().Call(output, nil)
-	// }
 
 	out, err := res.Reader()
 	if err != nil {
 		log.Errorf("res.Reader failed! %v", err)
-		req.CallFunc().Call("", err)
+		(*req.CallBack())("", err)
 		return
 	}
 
 	buf, err := ioutil.ReadAll(out)
 	if err != nil {
 		log.Errorf("iotuil.ReadAll failed! %v", err)
-		req.CallFunc().Call("", err)
+		(*req.CallBack())("", err)
 		return
 	}
 
-	req.CallFunc().Call(string(buf), nil)
+	(*req.CallBack())(string(buf), nil)
 }

@@ -335,7 +335,7 @@ You can now refer to the added file in a gateway, like so:
 					bar.Update()
 					if req.InvocContext().GetAsyncChan != nil {
 						out := strings.Join([]string{strconv.FormatInt(bar.Total, 10), strconv.FormatInt(bar.GetCurrent(), 10)}, cmdSep)
-						req.CallFunc().Call(out, nil)
+						(*req.CallBack())(out, nil)
 					}
 				}
 

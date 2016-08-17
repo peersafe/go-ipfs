@@ -1,129 +1,33 @@
 package main
 
 import (
-	"sync"
+	"fmt"
 	"time"
 
-	ipfs_lib "github.com/ipfs/go-ipfs/cmd/ipfs_lib"
+	ipfs_mobile "github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
+)
+
+var done chan struct{}
+
+const (
+	PATH = "ipfs_home"
 )
 
 func main() {
-	var wg sync.WaitGroup
-	done := make(chan struct{})
-	defer close(done)
-
-	// path
-	ipfs_lib.Ipfs_async_path("ipfs_home")
+	done = make(chan struct{}, 1)
 
 	// init
 	callback := new(CallBack)
-	ipfs_lib.Ipfs_async_init(callback)
+	fmt.Println(ipfs_mobile.IpfsInit(PATH))
+	time.Sleep(1 * time.Second)
 
 	// daemon
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-
-		ipfs_lib.Ipfs_async_daemon()
-		done <- struct{}{}
-	}()
-
-	// id
-	// go func() {
-	// 	wg.Add(1)
-	// 	defer wg.Done()
-
-	// 	// wait for daemon start
-	// 	time.Sleep(15)
-
-	// 	ipfs_lib.Ipfs_async_id(5)
-	// }()
-
-	// peerid
-	// go func() {
-	// 	wg.Add(1)
-	// 	defer wg.Done()
-
-	// 	// wait for daemon start
-	// 	time.Sleep(15 * time.Second)
-
-	// 	ipfs_lib.Ipfs_async_peerid("", 5)
-	// 	ipfs_lib.Ipfs_async_peerid("QmeVm9QSUMxYa2CHxAPj5UpXkfLchezgZivn6XPSc11111", 5)
-	// 	ipfs_lib.Ipfs_async_peerid("", 5)
-	// }()
-
-	// privkey
-	// go func() {
-	// 	wg.Add(1)
-	// 	defer wg.Done()
-
-	// 	// wait for daemon start
-	// 	time.Sleep(15 * time.Second)
-	// 	ipfs_lib.Ipfs_async_privkey("", 5)
-	// 	ipfs_lib.Ipfs_async_privkey("mykey", 5)
-	// 	ipfs_lib.Ipfs_async_privkey("", 5)
-	// }()
+	go ipfs_mobile.IpfsAsyncDaemon(PATH, callback)
 
 	// add
-	// go func() {
-	// 	wg.Add(1)
-	// 	defer wg.Done()
-
-	// 	// wait for daemon start
-	// 	time.Sleep(15 * time.Second)
-	// 	ipfs_lib.Ipfs_async_add("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/", "apimain.go", 5)
-	// }()
-
-	// move
-	// go func() {
-	// 	wg.Add(1)
-	// 	defer wg.Done()
-
-	// 	// wait for add done
-	// 	time.Sleep(15 * time.Second)
-	// 	ipfs_lib.Ipfs_async_move("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/", "/zyx", 5)
-	// }()
-
-	// get
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-
-		// wait for daemon start
-		time.Sleep(10 * time.Second)
-		ipfs_lib.Ipfs_async_get("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "getBlock", 5)
-	}()
-	/*
-		// query
-		go func() {
-			wg.Add(1)
-			defer wg.Done()
-
-			// wait for daemon start
-			time.Sleep(10 * time.Second)
-			ipfs_lib.IpfsAsyncQuery("QmRVZmwRKGKVZprrqxCLHAiuqEwA9casjUA57e8pKufXNi", "/", 5, call)
-		}()
-
-		// delete
-		go func() {
-			wg.Add(1)
-			defer wg.Done()
-
-			// wait for move done
-			time.Sleep(20 * time.Second)
-			ipfs_lib.IpfsAsyncDelete("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", "/zyx", 5, call)
-		}()
-	*/
-
-	// shutdown
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		// wait for all goroutine done
-		time.Sleep(30 * time.Second)
-		ipfs_lib.Ipfs_async_shutdown()
-	}()
+	add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 5)
+	fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
 
 	<-done
-	wg.Wait()
+	close(done)
 }
