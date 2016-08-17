@@ -64,7 +64,7 @@ directly.`,
 
 var ObjectDataCmd = &cmds.Command{
 	Helptext: cmds.HelpText{
-		Tagline: "Outputs the raw bytes in an IPFS object.",
+		Tagline: "Output the raw bytes of an IPFS object.",
 		ShortDescription: `
 'ipfs object data' is a plumbing command for retrieving the raw bytes stored
 in a DAG node. It outputs to stdout, and <key> is a base58 encoded multihash.
@@ -100,7 +100,7 @@ is the raw data of the object.
 
 var ObjectLinksCmd = &cmds.Command{
 	Helptext: cmds.HelpText{
-		Tagline: "Outputs the links pointed to by the specified object.",
+		Tagline: "Output the links pointed to by the specified object.",
 		ShortDescription: `
 'ipfs object links' is a plumbing command for retrieving the links from
 a DAG node. It outputs to stdout, and <key> is a base58 encoded
@@ -311,7 +311,7 @@ var ObjectStatCmd = &cmds.Command{
 
 var ObjectPutCmd = &cmds.Command{
 	Helptext: cmds.HelpText{
-		Tagline: "Stores input as a DAG object, outputs its key.",
+		Tagline: "Store input as a DAG object, print its key.",
 		ShortDescription: `
 'ipfs object put' is a plumbing command for storing DAG nodes.
 It reads from stdin, and the output is a base58 encoded multihash.
@@ -402,7 +402,7 @@ And then run:
 
 var ObjectNewCmd = &cmds.Command{
 	Helptext: cmds.HelpText{
-		Tagline: "Creates a new object from an ipfs template.",
+		Tagline: "Create a new object from an ipfs template.",
 		ShortDescription: `
 'ipfs object new' is a plumbing command for creating new DAG nodes.
 `,
