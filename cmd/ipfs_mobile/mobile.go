@@ -1,7 +1,6 @@
 package ipfsmobile
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 
@@ -9,23 +8,19 @@ import (
 	uuid "gx/ipfs/QmcyaFHbyiZfoX5GTpcqqCPYmbjYNAhRDekXSJPFHdYNSV/go.uuid"
 )
 
-const (
-	ADD_TYPE int = iota
-	GET_TYPE
-)
-
 var (
-	globalCallBack IpfsCallBack
+	GlobalCallBack IpfsCallBack
 	cmdSep         string = "&X&"
 )
 
 type IpfsCallBack interface {
-	Daemon(status int, err error)
-	Add(uid, hash string, pos int, err error)
-	Get(uid string, pos int, err error)
-	Query(root_hash, ipfs_path, result string, err error)
-	Publish(publish_hash string, err error)
-	ConnectPeer(peer_addr string, err error)
+	Daemon(status int, err string)
+	Add(uid, hash string, pos int, err string)
+	Get(uid string, pos int, err string)
+	Query(root_hash, ipfs_path, result string, err string)
+	Publish(publish_hash string, err string)
+	ConnectPeer(peer_addr string, err string)
+	Message(peer_id, peer_key, msg string, err string)
 }
 
 func IpfsInit(path string) error {
@@ -35,21 +30,21 @@ func IpfsInit(path string) error {
 
 func IpfsAsyncDaemon(path string, call IpfsCallBack) {
 	if call != nil {
-		globalCallBack = call
+		GlobalCallBack = call
 	} else {
-		globalCallBack.Daemon(1, errors.New("error: IpfsAsyncDaemon call parameter is nil!"))
+		GlobalCallBack.Daemon(1, "IpfsAsyncDaemon call parameter is nil!")
 		return
 	}
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Daemon(1, err)
+			GlobalCallBack.Daemon(1, err.Error())
 			return
 		}
 		if result == "Start" {
-			globalCallBack.Daemon(0, nil)
+			GlobalCallBack.Daemon(0, "")
 		}
 		if result == "Shutdown" {
-			globalCallBack.Daemon(1, nil)
+			GlobalCallBack.Daemon(1, "")
 		}
 	}
 	ipfs_lib.IpfsAsyncDaemon(path, outerCall)
@@ -73,23 +68,28 @@ func IpfsShutdown() (retErr error) {
 
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
+	bakPos := 100
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Add(uid, "", 0, err)
+			GlobalCallBack.Add(uid, "", 0, err.Error())
 			return
 		}
 		// do progress callback
 		if !strings.Contains(result, "Over") && !strings.HasPrefix(result, "Qm") {
 			results := strings.Split(result, cmdSep)
-			total, _ := strconv.ParseInt(results[0], 10, 64)
-			current, _ := strconv.ParseInt(results[1], 10, 64)
+			total, _ := strconv.ParseFloat(results[0], 64)
+			current, _ := strconv.ParseFloat(results[1], 64)
 			pos := int((current / total) * 100)
-			globalCallBack.Add(uid, "", pos, nil)
+			if pos == 100 || bakPos == pos {
+				return
+			}
+			bakPos = pos
+			GlobalCallBack.Add(uid, "", pos, "")
 			return
 		}
 
 		add_hash := result
-		globalCallBack.Add(uid, add_hash, 100, nil)
+		GlobalCallBack.Add(uid, add_hash, 100, "")
 	}
 	ipfs_lib.IpfsAsyncAdd(os_path, second, outerCall)
 	return uid
@@ -145,21 +145,26 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 
 func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
+	bakPos := 100
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Get(uid, 0, err)
+			GlobalCallBack.Get(uid, 0, err.Error())
 			return
 		}
 		// do progress callback
 		if result != "" && !strings.Contains(result, "Over") {
 			results := strings.Split(result, cmdSep)
-			total, _ := strconv.ParseInt(results[0], 10, 64)
-			current, _ := strconv.ParseInt(results[1], 10, 64)
+			total, _ := strconv.ParseFloat(results[0], 64)
+			current, _ := strconv.ParseFloat(results[1], 64)
 			pos := int((current / total) * 100)
-			globalCallBack.Get(uid, pos, nil)
+			if pos == 100 || bakPos == pos {
+				return
+			}
+			bakPos = pos
+			GlobalCallBack.Get(uid, pos, "")
 			return
 		}
-		globalCallBack.Get(uid, 100, nil)
+		GlobalCallBack.Get(uid, 100, "")
 	}
 	ipfs_lib.IpfsAsyncGet(share_hash, save_path, second, outerCall)
 	return uid
@@ -168,11 +173,11 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 func IpfsAsyncQuery(object_hash, ipfs_path string, second int) {
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Query(object_hash, ipfs_path, "", err)
+			GlobalCallBack.Query(object_hash, ipfs_path, "", err.Error())
 			return
 		}
 
-		globalCallBack.Query(object_hash, ipfs_path, result, err)
+		GlobalCallBack.Query(object_hash, ipfs_path, result, "")
 	}
 	ipfs_lib.IpfsAsyncQuery(object_hash, ipfs_path, second, outerCall)
 }
@@ -228,11 +233,11 @@ func IpfsPrivkey(new_key string, second int) (key string, retErr error) {
 func IpfsAsyncPublish(object_hash string, second int) {
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Publish("", err)
+			GlobalCallBack.Publish("", err.Error())
 			return
 		}
 		publish_hash := result
-		globalCallBack.Publish(publish_hash, nil)
+		GlobalCallBack.Publish(publish_hash, "")
 	}
 	ipfs_lib.IpfsAsyncPublish(object_hash, second, outerCall)
 }
@@ -240,10 +245,10 @@ func IpfsAsyncPublish(object_hash string, second int) {
 func IpfsAsyncConnectpeer(peer_addr string, second int) {
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.ConnectPeer(peer_addr, err)
+			GlobalCallBack.ConnectPeer(peer_addr, err.Error())
 			return
 		}
-		globalCallBack.ConnectPeer(peer_addr, nil)
+		GlobalCallBack.ConnectPeer(peer_addr, "")
 	}
 	ipfs_lib.IpfsAsyncConnectPeer(peer_addr, second, outerCall)
 }
@@ -294,6 +299,10 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	ipfs_lib.IpfsAsyncRemotels(peer_id, peer_key, object_hash, second, outerCall)
 	<-sync
 	return
+}
+
+func IpfsAsyncMessage(peer_id, peer_key, msg string) {
+	ipfs_lib.IpfsAsyncMessage(peer_id, peer_key, msg, func(result string, err error) {})
 }
 
 func geneUuid() string {

@@ -35,6 +35,12 @@ func (call *CallBack) Add(uid, add_hash string, pos int, err error) {
 		return
 	}
 	fmt.Printf("uid=%v, ==================== process=%v %, add_hash=%v\n", uid, pos, add_hash)
+	err = ipfs_mobile.IpfsShutdown()
+	if err != nil {
+		fmt.Println("func=[IpfsAsyncShutdown],err= ", err)
+		return
+	}
+	fmt.Println("func=[IpfsAsyncShutdown], Over")
 }
 
 func (call *CallBack) Get(uid string, pos int, err error) {
@@ -46,12 +52,10 @@ func (call *CallBack) Get(uid string, pos int, err error) {
 	if pos != 100 {
 		return
 	}
-	err = ipfs_mobile.IpfsShutdown()
-	if err != nil {
-		fmt.Println("func=[IpfsAsyncShutdown],err= ", err)
-		return
-	}
-	fmt.Println("func=[IpfsAsyncShutdown], Over")
+
+	// add
+	add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 5)
+	fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
 }
 
 func (call *CallBack) Query(object_hash, ipfs_path, result string, err error) {
@@ -83,4 +87,14 @@ func (call *CallBack) ConnectPeer(peer_addr string, err error) {
 
 	uid := ipfs_mobile.IpfsAsyncGet("QmfJ6DFC8pTv72JLKzdE1q9LLv1hGdqeUafZ9SFgXWY1kK", "test", 60)
 	fmt.Println("func=[IpfsAsyncGet],uid= ", uid)
+}
+
+func (call *CallBack) Message(peer_id, passwd, msg string, err error) {
+	fmt.Println(Tab)
+	fmt.Printf("func=[Message],peer_id=[%v],passwd=[%v],msg=[%v],err=[%v]\n",
+		peer_id, passwd, msg, err)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }

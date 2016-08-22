@@ -24,10 +24,6 @@ func main() {
 	// daemon
 	go ipfs_mobile.IpfsAsyncDaemon(PATH, callback)
 
-	// add
-	add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 5)
-	fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
-
 	<-done
 	close(done)
 }
