@@ -130,6 +130,7 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB) (r int, s stri
 	invoc.req.InvocContext().GetAsyncChan = func() (*(chan<- cmds.Request), *(<-chan cmds.Request), error) {
 		return &ins.asyncChanSend, &ins.asyncChanRecv, nil
 	}
+
 	*(invoc.req.CallBack()) = call
 
 	output, err := invoc.Run(ctx)
@@ -444,12 +445,12 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 		if err != nil {
 			if isConnRefused(err) {
 				err = repo.ErrApiNotRunning
+				return nil, err
 			}
 			return nil, wrapContextCanceled(err)
 		}
 	} else {
 		log.Debug("executing command locally")
-
 		err := req.SetRootContext(ctx)
 		if err != nil {
 			return nil, err
@@ -457,7 +458,6 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 
 		// Okay!!!!! NOW we can call the command.
 		res = root.Call(req)
-
 	}
 
 	if cmd.PostRun != nil && req.InvocContext().GetAsyncChan == nil {
@@ -736,7 +736,6 @@ func apiClientForAddr(addr ma.Multiaddr) (cmds.Client, error) {
 }
 
 func getAsyncApiClient(repoPath, apiAddrStr string) (cmds.Client, error) {
-
 	if apiAddrStr == "" {
 		var err error
 		if apiAddrStr, err = fsrepo.APIAddr(repoPath); err != nil {

@@ -5,11 +5,12 @@ import (
 	"strings"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
+	"github.com/ipfs/go-ipfs/cmd/ipfs_mobile/callback"
 	uuid "gx/ipfs/QmcyaFHbyiZfoX5GTpcqqCPYmbjYNAhRDekXSJPFHdYNSV/go.uuid"
 )
 
 var (
-	GlobalCallBack IpfsCallBack
+	globalCallBack IpfsCallBack
 	cmdSep         string = "&X&"
 )
 
@@ -30,21 +31,22 @@ func IpfsInit(path string) error {
 
 func IpfsAsyncDaemon(path string, call IpfsCallBack) {
 	if call != nil {
-		GlobalCallBack = call
+		globalCallBack = call
+		callback.GlobalCallBack = call
 	} else {
-		GlobalCallBack.Daemon(1, "IpfsAsyncDaemon call parameter is nil!")
+		globalCallBack.Daemon(1, "IpfsAsyncDaemon call parameter is nil!")
 		return
 	}
 	outerCall := func(result string, err error) {
 		if err != nil {
-			GlobalCallBack.Daemon(1, err.Error())
+			globalCallBack.Daemon(1, err.Error())
 			return
 		}
 		if result == "Start" {
-			GlobalCallBack.Daemon(0, "")
+			globalCallBack.Daemon(0, "")
 		}
 		if result == "Shutdown" {
-			GlobalCallBack.Daemon(1, "")
+			globalCallBack.Daemon(1, "")
 		}
 	}
 	ipfs_lib.IpfsAsyncDaemon(path, outerCall)
@@ -52,6 +54,7 @@ func IpfsAsyncDaemon(path string, call IpfsCallBack) {
 
 func IpfsShutdown() (retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			retErr = err
@@ -66,12 +69,17 @@ func IpfsShutdown() (retErr error) {
 	return
 }
 
+type bakpos struct {
+	pos  int
+	done bool
+}
+
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
-	bakPos := 100
+	bakPos := &bakpos{100, false}
 	outerCall := func(result string, err error) {
 		if err != nil {
-			GlobalCallBack.Add(uid, "", 0, err.Error())
+			globalCallBack.Add(uid, "", 0, err.Error())
 			return
 		}
 		// do progress callback
@@ -80,16 +88,19 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			total, _ := strconv.ParseFloat(results[0], 64)
 			current, _ := strconv.ParseFloat(results[1], 64)
 			pos := int((current / total) * 100)
-			if pos == 100 || bakPos == pos {
+			if pos == 100 || bakPos.pos == pos {
 				return
 			}
-			bakPos = pos
-			GlobalCallBack.Add(uid, "", pos, "")
+			bakPos.pos = pos
+			globalCallBack.Add(uid, "", pos, "")
 			return
 		}
 
-		add_hash := result
-		GlobalCallBack.Add(uid, add_hash, 100, "")
+		if !bakPos.done {
+			add_hash := result
+			globalCallBack.Add(uid, add_hash, 100, "")
+			bakPos.done = true
+		}
 	}
 	ipfs_lib.IpfsAsyncAdd(os_path, second, outerCall)
 	return uid
@@ -97,10 +108,14 @@ func IpfsAsyncAdd(os_path string, second int) string {
 
 func IpfsDelete(root_hash, ipfs_path string, second int) (new_root string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			new_root, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		new_root, retErr = result, nil
@@ -113,10 +128,14 @@ func IpfsDelete(root_hash, ipfs_path string, second int) (new_root string, retEr
 
 func IpfsMove(root_hash, ipfs_src_path, ipfs_dst_path string, second int) (new_root string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			new_root, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		new_root, retErr = result, nil
@@ -129,10 +148,15 @@ func IpfsMove(root_hash, ipfs_src_path, ipfs_dst_path string, second int) (new_r
 
 func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
+
 	outerCall := func(result string, err error) {
 		if err != nil {
 			new_hash, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		new_hash, retErr = result, nil
@@ -140,15 +164,16 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 	}
 	ipfs_lib.IpfsAsyncShard(object_hash, share_name, sencond, outerCall)
 	<-sync
+
 	return
 }
 
 func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
-	bakPos := 100
+	bakPos := &bakpos{100, false}
 	outerCall := func(result string, err error) {
 		if err != nil {
-			GlobalCallBack.Get(uid, 0, err.Error())
+			globalCallBack.Get(uid, 0, err.Error())
 			return
 		}
 		// do progress callback
@@ -157,14 +182,17 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			total, _ := strconv.ParseFloat(results[0], 64)
 			current, _ := strconv.ParseFloat(results[1], 64)
 			pos := int((current / total) * 100)
-			if pos == 100 || bakPos == pos {
+			if pos == 100 || bakPos.pos == pos {
 				return
 			}
-			bakPos = pos
-			GlobalCallBack.Get(uid, pos, "")
+			bakPos.pos = pos
+			globalCallBack.Get(uid, pos, "")
 			return
 		}
-		GlobalCallBack.Get(uid, 100, "")
+		if !bakPos.done {
+			globalCallBack.Get(uid, 100, "")
+			bakPos.done = true
+		}
 	}
 	ipfs_lib.IpfsAsyncGet(share_hash, save_path, second, outerCall)
 	return uid
@@ -173,21 +201,24 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 func IpfsAsyncQuery(object_hash, ipfs_path string, second int) {
 	outerCall := func(result string, err error) {
 		if err != nil {
-			GlobalCallBack.Query(object_hash, ipfs_path, "", err.Error())
+			globalCallBack.Query(object_hash, ipfs_path, "", err.Error())
 			return
 		}
-
-		GlobalCallBack.Query(object_hash, ipfs_path, result, "")
+		globalCallBack.Query(object_hash, ipfs_path, result, "")
 	}
 	ipfs_lib.IpfsAsyncQuery(object_hash, ipfs_path, second, outerCall)
 }
 
 func IpfsMerge(root_hash, ipfs_path, share_hash string, second int) (new_root string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			new_root, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		new_root, retErr = result, nil
@@ -195,15 +226,20 @@ func IpfsMerge(root_hash, ipfs_path, share_hash string, second int) (new_root st
 	}
 	ipfs_lib.IpfsAsyncMerge(root_hash, ipfs_path, share_hash, second, outerCall)
 	<-sync
+
 	return
 }
 
 func IpfsPeerid(new_id string, second int) (id string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			id, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		id, retErr = result, nil
@@ -216,10 +252,14 @@ func IpfsPeerid(new_id string, second int) (id string, retErr error) {
 
 func IpfsPrivkey(new_key string, second int) (key string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			key, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		key, retErr = result, nil
@@ -233,11 +273,11 @@ func IpfsPrivkey(new_key string, second int) (key string, retErr error) {
 func IpfsAsyncPublish(object_hash string, second int) {
 	outerCall := func(result string, err error) {
 		if err != nil {
-			GlobalCallBack.Publish("", err.Error())
+			globalCallBack.Publish("", err.Error())
 			return
 		}
 		publish_hash := result
-		GlobalCallBack.Publish(publish_hash, "")
+		globalCallBack.Publish(publish_hash, "")
 	}
 	ipfs_lib.IpfsAsyncPublish(object_hash, second, outerCall)
 }
@@ -245,20 +285,24 @@ func IpfsAsyncPublish(object_hash string, second int) {
 func IpfsAsyncConnectpeer(peer_addr string, second int) {
 	outerCall := func(result string, err error) {
 		if err != nil {
-			GlobalCallBack.ConnectPeer(peer_addr, err.Error())
+			globalCallBack.ConnectPeer(peer_addr, err.Error())
 			return
 		}
-		GlobalCallBack.ConnectPeer(peer_addr, "")
+		globalCallBack.ConnectPeer(peer_addr, "")
 	}
 	ipfs_lib.IpfsAsyncConnectPeer(peer_addr, second, outerCall)
 }
 
 func IpfsConfig(key, value string) (retValue string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			retValue, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		retValue, retErr = result, nil
@@ -271,10 +315,14 @@ func IpfsConfig(key, value string) (retValue string, retErr error) {
 
 func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			retErr = err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		retErr = nil
@@ -287,10 +335,14 @@ func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (retErr er
 
 func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult string, retErr error) {
 	sync := make(chan struct{})
+	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			lsResult, retErr = "", err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		lsResult, retErr = result, nil
@@ -298,6 +350,7 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	}
 	ipfs_lib.IpfsAsyncRemotels(peer_id, peer_key, object_hash, second, outerCall)
 	<-sync
+
 	return
 }
 

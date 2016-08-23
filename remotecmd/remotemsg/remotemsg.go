@@ -1,4 +1,4 @@
-package remotels
+package remotemsg
 
 import (
 	"bytes"
@@ -22,11 +22,11 @@ import (
 	peer "gx/ipfs/QmRBqJF7hb8ZSpRcMwUt8hNhydWcxGEhtk81HKq6oUwKvs/go-libp2p-peer"
 	host "gx/ipfs/QmVCe3SNMjkcPgnpFhZs719dheq6xE7gJwjzV7aWcUM4Ms/go-libp2p/p2p/host"
 	inet "gx/ipfs/QmVCe3SNMjkcPgnpFhZs719dheq6xE7gJwjzV7aWcUM4Ms/go-libp2p/p2p/net"
+	ma "gx/ipfs/QmYzDkkgAEmrcNzFCiYo6L1dTX4EAG1gZkbtdbd9trL4vd/go-multiaddr"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
 	api "github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
-
-	path "github.com/ipfs/go-ipfs/path"
+	"github.com/ipfs/go-ipfs/cmd/ipfs_mobile/callback"
 )
 
 var log = logging.Logger("remotemsg")
@@ -39,25 +39,23 @@ type RemotemsgService struct {
 	ApiCmd api.Apier
 }
 
-func NewRemotecmdService(h host.Host, key string) *RemotemsgService {
-	ps := &RemotecmdService{h, key, api.GApiInterface}
+func NewRemotemsgService(h host.Host, key string) *RemotemsgService {
+	ps := &RemotemsgService{h, key, api.GApiInterface}
 	h.SetStreamHandler(ID, ps.RemotemsgHandler)
 	return ps
 }
 
 func (p *RemotemsgService) RemotemsgHandler(s inet.Stream) {
 	for {
-
 		slen := make([]byte, 1)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
-			log.Errorf("remotemsg error:%v", err)
+			log.Errorf("remotels error:%v", err)
 			return
 		}
+		buflen := int(slen[0])
 
-		len := int(slen[0])
-
-		rbuf := make([]byte, len)
+		rbuf := make([]byte, buflen)
 		_, err = io.ReadFull(s, rbuf)
 		if err != nil {
 			log.Errorf("remotemsg error:%v", err)
@@ -67,14 +65,13 @@ func (p *RemotemsgService) RemotemsgHandler(s inet.Stream) {
 		var buf []byte = rbuf
 		content, err := p.DecryptRequest(rbuf)
 		if err != nil {
-			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
+			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len(rbuf))
 		}
-
-		err = p.remotemsg(string(content))
+		fmt.Println(">>>>>>>>>>>>>remotemsg receive msg after decode =", string(content))
+		err = p.remotemsg(content)
 		if err != nil {
-			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len)
+			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len(rbuf))
 		}
-
 		_, err = s.Write(buf)
 		if err != nil {
 			log.Errorf("remotemsg error:%v", err)
@@ -103,66 +100,122 @@ func (p *RemotemsgService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
 	return rbuf, nil
 }
 
-type remoteCmd struct {
-	Type string `json:"type"` //[pin] [ls] [relaypin]
-	Hash string `json:"hash"`
+type remoteMsg struct {
+	Type           string `json:"type"`
+	Hash           string `json:"hash"`
+	MsgFromPeerId  string `json:"msg_from_peerid"`
+	MsgFromPeerKey string `json:"msg_from_peerkey"`
+	// for relaypin
+	PeerId  string `json:"peer_id"`
+	PeerKey string `json:"peer_key"`
+	IsRelay bool   `json:"is_relay"`
 }
 
-func (ps *RemotemsgService) remotemsg(content string) error {
-	log.Debugf("remotemsg [%s]", content)
-	go func() {
-		file, _ := exec.LookPath(os.Args[0])
-		app := filepath.Clean(file)
-		app = filepath.ToSlash(app)
-		app = filepath.Base(app)
-		log.Debugf("remotemsg file[%v]", file)
-		if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+func (ps *RemotemsgService) remotemsg(content []byte) error {
+	// json unmarshal
+	msg := new(remoteMsg)
+	err := json.Unmarshal(content, msg)
+	if err != nil {
+		log.Errorf("remotemsg error=[%v]\n", err)
+		return err
+	}
 
-			// json 解析
-			cmd := new(remoteCmd)
-			err := json.Unmarshal([]byte(content), cmd)
-			if err != nil {
-
-			}
-
-			switch cmd.Type {
-			case "remotepin":
-			case "remotels":
-			case "relaypin":
-			case "rRemotepin":
-			case "rRemotels":
-			case "rRelaypin":
-			case "message":
-			}
-
-			// use ipfs
-			// path, _ := filepath.Abs(file)
-			// cmd := exec.Cmd{
-			// 	Path: path,
-			// 	Args: []string{"ipfs", "ls", fpath, "--timeout=30s"},
-			// }
-			// err := cmd.Run()
-			// if err != nil {
-			// 	log.Errorf("remotemsg error:%v", err)
-			// }
-			go func() {
-				// exec.(get hash)
-				// exec.(message {"remotepin OK"})
-			}()
-
-		} else {
-			// use libipfs
-			_, _, err := ps.ApiCmd.Cmd(strings.Join([]string{"ipfs", "ls", fpath, "--timeout=30s"}, "&X&"), 0)
-			if err != nil {
-				log.Errorf("remotemsg error:%v", err)
-			}
+	successServerMsg := func(types string) {
+		returnMsg := &remoteMsg{
+			Type: types,
+			Hash: msg.Hash,
 		}
+		data, err := json.Marshal(returnMsg)
+		if err != nil {
+			log.Errorf("remotemsg error:%v", err)
+			return
+		}
+		pid, err := peer.IDB58Decode(msg.MsgFromPeerId)
+		if err != nil {
+			log.Errorf("remotemsg error:%v", err)
+			return
+		}
+		if _, err := ps.RemoteMsg(context.TODO(), pid, msg.MsgFromPeerKey, string(data)); err != nil {
+			log.Errorf("remotemsg error:%v", err)
+			return
+		}
+	}
 
-	}()
+	file, _ := exec.LookPath(os.Args[0])
+	app := filepath.Clean(file)
+	app = filepath.ToSlash(app)
+	app = filepath.Base(app)
+	log.Debugf("remotemsg file[%v]", file)
+	path, _ := filepath.Abs(file)
+
+	if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+		switch msg.Type {
+		case "remotepin":
+			cmd := exec.Cmd{
+				Path: path,
+				Args: []string{"ipfs", "get", msg.Hash, "-o", "/dev/null"},
+			}
+			err := cmd.Run()
+			if err != nil {
+				log.Errorf("remotemsg>>>remotepin error:%v", err)
+				return err
+			}
+			successServerMsg("rRemotepin")
+		case "remotels":
+			cmd := exec.Cmd{
+				Path: path,
+				Args: []string{"ipfs", "ls", msg.Hash, "--timeout=30s"},
+			}
+			err := cmd.Run()
+			if err != nil {
+				log.Errorf("remotemsg>>>remotels error:%v", err)
+				return err
+			}
+			successServerMsg("rRemotels")
+		case "relaypin":
+			if msg.IsRelay { // local is master
+				log.Debug("local is relay")
+				cmd := exec.Cmd{
+					Path: path,
+					Args: []string{"ipfs", "ls", msg.Hash},
+				}
+				err := cmd.Run()
+				if err != nil {
+					log.Errorf("remotemsg->>>relaypin error:%v", err)
+					return err
+				}
+				err = ps.relayPeer(msg.PeerId, msg.PeerKey, msg.Hash)
+				if err != nil {
+					log.Errorf("remotemsg->>>relaypin error:%v", err)
+					return err
+				}
+			} else { // local is slave
+				log.Debug("local is work")
+				cmd := exec.Cmd{
+					Path: path,
+					Args: []string{"ipfs", "pin", "add", msg.Hash},
+				}
+				err := cmd.Run()
+				if err != nil {
+					log.Errorf("remotemsg->>>relaypin local work error:%v", err)
+					return err
+				}
+			}
+			successServerMsg("rRelaypin")
+		case "rRemotepin":
+			fmt.Println("Remotepin command exec successfully!")
+		case "rRemotels":
+			fmt.Println("Remotels command exec successfully!")
+		case "rRelaypin":
+			fmt.Println("Relaypin command exec successfully!")
+		}
+	} else {
+		callback.GlobalCallBack.Message(msg.MsgFromPeerId, msg.MsgFromPeerKey, string(content), "")
+	}
 	return nil
 }
 
-func (ps *RemotemsgService) Remotemsg(ctx context.Context, p peer.ID, key string, path path.Path) (<-chan error, error) {
+func (ps *RemotemsgService) RemoteMsg(ctx context.Context, p peer.ID, key, msg string) (<-chan error, error) {
 	s, err := ps.Host.NewStream(ctx, ID, p)
 	if err != nil {
 		return nil, err
@@ -175,8 +228,8 @@ func (ps *RemotemsgService) Remotemsg(ctx context.Context, p peer.ID, key string
 		case <-ctx.Done():
 			return
 		default:
-			log.Debugf("remotemsg [%s][%s]", ID, path)
-			_, err := remotels(s, key, path)
+			log.Debugf("remotemsg [%s][%s]", ID, msg)
+			_, err := remotemsg(s, key, msg)
 			if err != nil {
 				log.Errorf("remotemsg error:%v", err)
 			}
@@ -192,18 +245,16 @@ func (ps *RemotemsgService) Remotemsg(ctx context.Context, p peer.ID, key string
 	return out, nil
 }
 
-func remotemsg(s inet.Stream, key string, path path.Path) (time.Duration, error) {
+func remotemsg(s inet.Stream, key, msg string) (time.Duration, error) {
 	before := time.Now()
-	if !strings.HasPrefix(string(path), "/ipfs/") {
-		path = "/ipfs/" + path
-	}
 
-	orig := PKCS5Padding([]byte(path), aes.BlockSize)
+	orig := PKCS5Padding([]byte(msg), aes.BlockSize)
 	md5hash := md5.Sum(orig)
 	crypted, err := Encrypt(orig, []byte(key))
 	if err != nil {
 		return 0, err
 	}
+
 	buf := append(md5hash[:], crypted...)
 	buflen := len(buf)
 
@@ -231,6 +282,114 @@ func remotemsg(s inet.Stream, key string, path path.Path) (time.Duration, error)
 	}
 
 	return time.Now().Sub(before), nil
+}
+
+func (ps *RemotemsgService) relayPeer(p, key, fpath string) error {
+	log.Debugf("relayPeer remote[%v]", p)
+
+	_, pid, err := parsePeerParam(p)
+	if err != nil {
+		return fmt.Errorf("peer addr hash format error")
+	}
+
+	ps.Host.Network().ConnsToPeer(pid)
+
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	out, err := ps.Relaypin(ctx, pid, key, p, key, fpath, false)
+	if err != nil {
+		return fmt.Errorf("routing remote error")
+	}
+
+	select {
+	case reerr := <-out:
+		if reerr != nil {
+			return reerr
+		}
+	case <-ctx.Done():
+		return fmt.Errorf("routing timeout")
+	}
+	return nil
+}
+
+func (ps *RemotemsgService) Relaypin(ctx context.Context, relayID peer.ID, relayKey, peerID, peerKey, hash string, relay bool) (<-chan error, error) {
+	s, err := ps.Host.NewStream(ctx, ID, relayID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan error)
+	go func() {
+		defer close(out)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			log.Debugf("[%v][%v][%v][%v][%v]", relayID, relayKey, peerID, peerKey, hash)
+			msg := &remoteMsg{
+				Type:    "relaypin",
+				Hash:    hash,
+				PeerId:  peerID,
+				PeerKey: peerKey,
+				IsRelay: relay,
+			}
+			var err error
+			data, err := json.Marshal(msg)
+			if err != nil {
+				log.Errorf("msg json marshal:%v", err)
+			} else {
+				_, err = remotemsg(s, relayKey, string(data))
+				if err != nil {
+					log.Errorf("call relaypin remote error:%v", err)
+				}
+			}
+			select {
+			case out <- err:
+			case <-ctx.Done():
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+func parsePeerParam(text string) (ma.Multiaddr, peer.ID, error) {
+	// to be replaced with just multiaddr parsing, once ptp is a multiaddr protocol
+	idx := strings.LastIndex(text, "/")
+	if idx == -1 {
+		pid, err := peer.IDB58Decode(text)
+		if err != nil {
+			return nil, "", err
+		}
+
+		return nil, pid, nil
+	}
+
+	addrS := text[:idx]
+	peeridS := text[idx+1:]
+
+	var maddr ma.Multiaddr
+	var pid peer.ID
+
+	// make sure addrS parses as a multiaddr.
+	if len(addrS) > 0 {
+		var err error
+		maddr, err = ma.NewMultiaddr(addrS)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
+	// make sure idS parses as a peer.ID
+	var err error
+	pid, err = peer.IDB58Decode(peeridS)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return maddr, pid, nil
 }
 
 func Encrypt(src, key []byte) ([]byte, error) {
@@ -305,6 +464,9 @@ func PKCS5Padding(ciphertext []byte, blockSize int) []byte {
 
 func PKCS5UnPadding(origData []byte) []byte {
 	length := len(origData)
+	if length == 0 {
+		return nil
+	}
 	unpadding := int(origData[length-1])
 	return origData[:(length - unpadding)]
 }

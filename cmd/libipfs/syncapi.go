@@ -11,14 +11,6 @@ import (
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 )
 
-var flag int
-
-//export testcall
-func testcall(fn unsafe.Pointer, nu int) {
-	flag += nu
-	test(fn, flag)
-}
-
 //export ipfs_path
 func ipfs_path(path string, out_res *C.char) int {
 	ret, str := ipfs_lib.IpfsPath(path)

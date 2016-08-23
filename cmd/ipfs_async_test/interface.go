@@ -13,7 +13,7 @@ const (
 	Tab = "===================================================================================="
 )
 
-func (call *CallBack) Daemon(status int, err error) {
+func (call *CallBack) Daemon(status int, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Daemon],status=[%v],err=[%v]\n", status, err)
 	if status == 0 {
@@ -26,24 +26,56 @@ func (call *CallBack) Daemon(status int, err error) {
 	}
 }
 
-func (call *CallBack) Add(uid, add_hash string, pos int, err error) {
+func (call *CallBack) Add(uid, add_hash string, pos int, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Add],uid=[%v],add_hash=[%v],pos=[%v],err=[%v]\n",
 		uid, add_hash, pos, err)
-	if add_hash == "" {
-		fmt.Printf("uid=%v, ==================== process=%v %\n", uid, pos)
+	fmt.Printf("uid=%v, ==================== process=%v %\n", uid, pos)
+	if pos != 100 {
 		return
 	}
-	fmt.Printf("uid=%v, ==================== process=%v %, add_hash=%v\n", uid, pos, add_hash)
-	err = ipfs_mobile.IpfsShutdown()
-	if err != nil {
-		fmt.Println("func=[IpfsAsyncShutdown],err= ", err)
+
+	// config test
+	peerid, e := ipfs_mobile.IpfsConfig("Identity.PeerID", "")
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncConfig],err= ", e)
+		return
+	}
+	fmt.Println("func=[IpfsAsyncConfig],peerid= ", peerid)
+	peerkey, e := ipfs_mobile.IpfsConfig("Identity.Secret", "")
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncConfig],err= ", e)
+		return
+	}
+	fmt.Println("func=[IpfsAsyncConfig],peerkey= ", peerkey)
+
+	peerid, e = ipfs_mobile.IpfsPeerid("", 5)
+	if e != nil {
+		fmt.Println("func=[IpfsPeerid],err= ", e)
+		return
+	}
+	fmt.Println("func=[IpfsPeerid],peerid= ", peerid)
+
+	peerkey, e = ipfs_mobile.IpfsPrivkey("", 5)
+	if e != nil {
+		fmt.Println("func=[IpfsPrivkey],err= ", e)
+		return
+	}
+	fmt.Println("func=[IpfsPrivkey],peerkey= ", peerkey)
+
+	// remotemsg test
+	// msg := `{"type":"remotepin","hash":"` + add_hash + `","msg_from_peerid":"` + peerid + `","msg_from_peerkey":"` + peerkey + `"}`
+	// ipfs_mobile.IpfsAsyncMessage("", "", msg)
+
+	e = ipfs_mobile.IpfsShutdown()
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncShutdown],err= ", e)
 		return
 	}
 	fmt.Println("func=[IpfsAsyncShutdown], Over")
 }
 
-func (call *CallBack) Get(uid string, pos int, err error) {
+func (call *CallBack) Get(uid string, pos int, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Get],uid=[%v],pos=[%v],err=[%v]\n",
 		uid, pos, err)
@@ -54,32 +86,32 @@ func (call *CallBack) Get(uid string, pos int, err error) {
 	}
 
 	// add
-	add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 5)
+	add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 30)
 	fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
 }
 
-func (call *CallBack) Query(object_hash, ipfs_path, result string, err error) {
+func (call *CallBack) Query(object_hash, ipfs_path, result string, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Query],object_hash=[%v],ipfs_path=[%v],result=[%v],err=[%v]\n",
 		object_hash, ipfs_path, result, err)
 }
 
-func (call *CallBack) Publish(publish_hash string, err error) {
+func (call *CallBack) Publish(publish_hash string, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Publish],publish_hash=[%v],err=[%v]\n",
 		publish_hash, err)
 }
 
-func (call *CallBack) ConnectPeer(peer_addr string, err error) {
+func (call *CallBack) ConnectPeer(peer_addr string, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[ConnectPeer],peer_addr=[%v],err=[%v]\n",
 		peer_addr, err)
-	if err != nil {
+	if err != "" {
 		fmt.Println(err)
 		return
 	}
-	id, err := ipfs_mobile.IpfsPeerid("", 5)
-	if err != nil {
+	id, e := ipfs_mobile.IpfsPeerid("", 5)
+	if e != nil {
 		fmt.Println("func=[IpfsAsyncPeerid],err=", err)
 		return
 	}
@@ -89,11 +121,11 @@ func (call *CallBack) ConnectPeer(peer_addr string, err error) {
 	fmt.Println("func=[IpfsAsyncGet],uid= ", uid)
 }
 
-func (call *CallBack) Message(peer_id, passwd, msg string, err error) {
+func (call *CallBack) Message(peer_id, passwd, msg string, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Message],peer_id=[%v],passwd=[%v],msg=[%v],err=[%v]\n",
 		peer_id, passwd, msg, err)
-	if err != nil {
+	if err != "" {
 		fmt.Println(err)
 		return
 	}

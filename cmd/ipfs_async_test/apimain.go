@@ -15,6 +15,7 @@ const (
 
 func main() {
 	done = make(chan struct{}, 1)
+	defer close(done)
 
 	// init
 	callback := new(CallBack)
@@ -25,5 +26,12 @@ func main() {
 	go ipfs_mobile.IpfsAsyncDaemon(PATH, callback)
 
 	<-done
-	close(done)
+	// config test
+	// fmt.Println(ipfs_mobile.IpfsInit(PATH))
+	// ret, e := ipfs_mobile.IpfsConfig("Identity", "")
+	// if e != nil {
+	// 	fmt.Println("func=[IpfsAsyncConfig],err= ", e)
+	// 	return
+	// }
+	// fmt.Println("func=[IpfsAsyncConfig],ret= ", ret)
 }

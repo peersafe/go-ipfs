@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	homedir "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
 	"github.com/ipfs/go-ipfs/commands"
 )
@@ -31,6 +32,7 @@ func (a *apiAsyncCmd) Cmd(str string, sec int) (int, string, error) {
 func IpfsAsyncInit(path string) (string, error) {
 	if path != "" {
 		asyncApiIns = NewInstance(path)
+		homedir.Home_Unix_Dir = path
 	} else {
 		return "", errors.New("path is nil!")
 	}
@@ -48,9 +50,11 @@ func IpfsAsyncInit(path string) (string, error) {
 func IpfsAsyncDaemon(path string, outerCall commands.RequestCB) {
 	if path == "" {
 		outerCall("", errors.New("path is nil!"))
+		return
 	}
 	if path != "" && asyncApiIns == nil {
 		asyncApiIns = NewInstance(path)
+		homedir.Home_Unix_Dir = path
 	}
 
 	// init apiinterface for remote cmds
@@ -114,11 +118,13 @@ func IpfsAsyncAdd(os_path string, second int, outerCall commands.RequestCB) {
 	os_path, err = filepath.Abs(path.Clean(os_path))
 	if err != nil {
 		outerCall("", err)
+		return
 	}
 
 	fi, err := os.Lstat(os_path)
 	if err != nil {
 		outerCall("", err)
+		return
 	}
 
 	cmd := ""
@@ -128,6 +134,7 @@ func IpfsAsyncAdd(os_path string, second int, outerCall commands.RequestCB) {
 		cmd = strings.Join([]string{"ipfs", "add", "--is-lib=true", os_path}, cmdSep)
 	} else {
 		outerCall("", errors.New("Unkown file type!"))
+		return
 	}
 
 	_, _, err = ipfsAsyncCmdTime(cmd, second, call)
@@ -292,33 +299,49 @@ func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.Req
 	var err error
 	if share_hash, err = ipfsHashCheck(share_hash); err != nil {
 		outerCall("", errors.New("share_hash format error"))
-	}
-	if len(os_path) == 0 {
-		outerCall("", errors.New("shard_name len is 0"))
+		return
 	}
 
-	os_path, err = filepath.Abs(path.Clean(os_path))
-	if err != nil {
-		outerCall("", err)
-	}
-
-	call := func(result string, err error) {
+	if len(os_path) != 0 {
+		os_path, err = filepath.Abs(path.Clean(os_path))
 		if err != nil {
 			outerCall("", err)
 			return
 		}
-		result = stringTrim(result)
-		// do progress callback
-		if result != "" && !strings.Contains(result, "Over") {
+
+		call := func(result string, err error) {
+			if err != nil {
+				outerCall("", err)
+				return
+			}
+			result = stringTrim(result)
+			// do progress callback
+			if result != "" && !strings.Contains(result, "Over") {
+				outerCall(result, nil)
+				return
+			}
 			outerCall(result, nil)
+		}
+		cmd := strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
+		_, _, err = ipfsAsyncCmdTime(cmd, second, call)
+		if err != nil {
+			outerCall("", err)
 			return
 		}
-		outerCall(result, nil)
-	}
-	cmd := strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
-	_, _, err = ipfsAsyncCmdTime(cmd, second, call)
-	if err != nil {
-		outerCall("", err)
+	} else { // remtote cmd pin add
+		call := func(result string, err error) {
+			if err != nil {
+				outerCall("", err)
+				return
+			}
+			result = stringTrim(result)
+			outerCall(result, nil)
+		}
+		cmd := strings.Join([]string{"ipfs", "pin", "add", share_hash}, cmdSep)
+		_, _, err = ipfsAsyncCmdTime(cmd, second, call)
+		if err != nil {
+			outerCall("", err)
+		}
 	}
 }
 
@@ -538,7 +561,36 @@ func IpfsAsyncConfig(key, value string, outerCall commands.RequestCB) {
 		}
 		outerCall(result, nil)
 	}
-	_, _, err := ipfsAsyncCmd(cmd, call)
+	_, result, err := ipfsAsyncCmd(cmd, call)
+	if err != nil {
+		outerCall("", err)
+		return
+	}
+	outerCall(result, nil)
+}
+
+func IpfsAsyncMessage(peer_id, peer_key, msg string, outerCall commands.RequestCB) {
+	if err := ipfsPeeridCheck(peer_id); err != nil {
+		outerCall("", errors.New("peer_id len is not 46"))
+		return
+	}
+	if err := ipfsPeerkeyCheck(peer_key); err != nil {
+		outerCall("", errors.New("peer_key len is not 8"))
+		return
+	}
+	if len(msg) == 0 {
+		outerCall("", errors.New("msg len is 0"))
+		return
+	}
+	cmd := strings.Join([]string{"ipfs", "remotemsg", peer_id, peer_key, msg}, cmdSep)
+	call := func(result string, err error) {
+		if err != nil {
+			outerCall("", err)
+			return
+		}
+		outerCall(result, nil)
+	}
+	_, _, err := ipfsAsyncCmdTime(cmd, 0, call)
 	if err != nil {
 		outerCall("", err)
 	}

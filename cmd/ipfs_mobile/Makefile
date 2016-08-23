@@ -8,3 +8,4 @@ android:
 clean:
 	rm -rf Ipfsmobile.framework
 	rm -rf ipfsmobile.aar
+	rm -rf *.tar.gz

@@ -152,18 +152,20 @@ func progressBarForReader(out io.Writer, r io.Reader, l int64, req cmds.Request)
 		log.Infof("terminal width: %v\n", terminalWidth)
 	}
 
-	go func() {
-		for {
-			if bar.GetFinish() {
-				(*req.CallBack())("Over", nil)
-				return
-			} else {
-				result := strings.Join([]string{strconv.FormatInt(bar.Total, 10), strconv.FormatInt(bar.GetCurrent(), 10)}, cmdSep)
-				(*req.CallBack())(result, nil)
-				time.Sleep(100 * time.Millisecond)
+	if req.InvocContext().GetAsyncChan != nil {
+		go func() {
+			for {
+				if bar.GetFinish() {
+					(*req.CallBack())("Over", nil)
+					return
+				} else {
+					result := strings.Join([]string{strconv.FormatInt(bar.Total, 10), strconv.FormatInt(bar.GetCurrent(), 10)}, cmdSep)
+					(*req.CallBack())(result, nil)
+					time.Sleep(100 * time.Millisecond)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	barR := bar.NewProxyReader(r)
 	return bar, &clearlineReader{barR, out}
