@@ -90,6 +90,9 @@ type Request interface {
 	VarArgs(func(string) error) error
 	CallBack() *RequestCB
 
+	Cancel() chan struct{}
+	SetCancel(ch chan struct{})
+
 	ConvertOptions() error
 }
 
@@ -106,6 +109,7 @@ type request struct {
 	stdin      io.Reader
 	islib      bool
 	callBack   RequestCB
+	cancel     chan struct{}
 }
 
 // Path returns the command path of this request
@@ -214,6 +218,14 @@ func (r *request) Context() context.Context {
 
 func (r *request) CallBack() *RequestCB {
 	return &(*r).callBack
+}
+
+func (r *request) SetCancel(ch chan struct{}) {
+	r.cancel = ch
+}
+
+func (r *request) Cancel() chan struct{} {
+	return r.cancel
 }
 
 func (r *request) haveVarArgsFromStdin() bool {

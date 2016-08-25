@@ -94,7 +94,7 @@ func IpfsAsyncId(second int, outerCall commands.RequestCB) {
 	}
 }
 
-func IpfsAsyncAdd(os_path string, second int, outerCall commands.RequestCB) {
+func IpfsAsyncAdd(os_path string, second int, outerCall commands.RequestCB, cancel chan struct{}) {
 	call := func(add_hash string, err error) {
 		if err != nil {
 			outerCall("", err)
@@ -137,7 +137,7 @@ func IpfsAsyncAdd(os_path string, second int, outerCall commands.RequestCB) {
 		return
 	}
 
-	_, _, err = ipfsAsyncCmdTime(cmd, second, call)
+	_, _, err = ipfsAsyncCmdWithCancel(cmd, second, call, cancel)
 	if err != nil {
 		outerCall("", err)
 	}
@@ -295,7 +295,7 @@ func IpfsAsyncShard(object_hash, share_name string, second int, outerCall comman
 	}
 }
 
-func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.RequestCB) {
+func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.RequestCB, cancel chan struct{}) {
 	var err error
 	if share_hash, err = ipfsHashCheck(share_hash); err != nil {
 		outerCall("", errors.New("share_hash format error"))
@@ -323,7 +323,7 @@ func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.Req
 			outerCall(result, nil)
 		}
 		cmd := strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
-		_, _, err = ipfsAsyncCmdTime(cmd, second, call)
+		_, _, err = ipfsAsyncCmdWithCancel(cmd, second, call, cancel)
 		if err != nil {
 			outerCall("", err)
 			return
@@ -338,7 +338,7 @@ func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.Req
 			outerCall(result, nil)
 		}
 		cmd := strings.Join([]string{"ipfs", "pin", "add", share_hash}, cmdSep)
-		_, _, err = ipfsAsyncCmdTime(cmd, second, call)
+		_, _, err = ipfsAsyncCmdWithCancel(cmd, second, call, cancel)
 		if err != nil {
 			outerCall("", err)
 		}
@@ -715,7 +715,25 @@ func ipfsAsyncCmdTime(cmd string, second int, call commands.RequestCB) (r int, s
 		}
 	}
 	fmt.Println(cmd)
-	return asyncApiIns.AsyncApi(cmd, call)
+	return asyncApiIns.AsyncApi(cmd, call, nil)
+}
+
+func ipfsAsyncCmdWithCancel(cmd string, second int, call commands.RequestCB, cancel chan struct{}) (r int, s string, e error) {
+	if nil == asyncApiIns {
+		call("", fmt.Errorf("Deamon not run"))
+	}
+	ipfsAsyncPath := asyncApiIns.AsyncPath()
+	if len(strings.Trim(ipfsAsyncPath, " ")) > 0 {
+		if second != 0 {
+			timeout := "--timeout=" + strconv.Itoa(second) + "s"
+			cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath, timeout}, cmdSep)
+		} else {
+			cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath}, cmdSep)
+
+		}
+	}
+	fmt.Println(cmd)
+	return asyncApiIns.AsyncApi(cmd, call, cancel)
 }
 
 func stringTrim(src string) string {

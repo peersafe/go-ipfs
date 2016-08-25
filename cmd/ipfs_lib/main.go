@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -67,7 +68,7 @@ type apiInstance struct {
 }
 
 type Instance interface {
-	AsyncApi(cmd string, call cmds.RequestCB) (r int, s string, e error)
+	AsyncApi(cmd string, call cmds.RequestCB, cancel chan struct{}) (r int, s string, e error)
 	AsyncPath() string
 	SetAsyncPath(string)
 }
@@ -91,9 +92,10 @@ func (ins *apiInstance) SetAsyncPath(path string) {
 	ins.ipfsAsyncPath = path
 }
 
-func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB) (r int, s string, e error) {
+func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB, cancel chan struct{}) (r int, s string, e error) {
 	defer func() {
 		if err := recover(); err != nil {
+			debug.PrintStack()
 			log.Errorf("async_daemon error:%v", err)
 			r, s, e = UNKOWN, "", errors.New("Excption error!!!!!!!!!!!!")
 		}
@@ -131,7 +133,13 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB) (r int, s stri
 		return &ins.asyncChanSend, &ins.asyncChanRecv, nil
 	}
 
+	// callback func
 	*(invoc.req.CallBack()) = call
+
+	// cancel channel
+	if cancel != nil {
+		invoc.req.SetCancel(cancel)
+	}
 
 	output, err := invoc.Run(ctx)
 	if err != nil {

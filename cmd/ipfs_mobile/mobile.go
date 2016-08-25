@@ -1,6 +1,7 @@
 package ipfsmobile
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 var (
 	globalCallBack IpfsCallBack
 	cmdSep         string = "&X&"
+	loaderMap      map[string]chan struct{}
 )
 
 type IpfsCallBack interface {
@@ -49,16 +51,21 @@ func IpfsAsyncDaemon(path string, call IpfsCallBack) {
 			globalCallBack.Daemon(1, "")
 		}
 	}
+	// uploaderMap and downloaderMap init
+	loaderMap = make(map[string]chan struct{})
 	ipfs_lib.IpfsAsyncDaemon(path, outerCall)
 }
 
 func IpfsShutdown() (retErr error) {
-	sync := make(chan struct{})
+	sync := make(chan struct{}, 1)
 	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
 			retErr = err
 			sync <- struct{}{}
+			return
+		}
+		if result == "" {
 			return
 		}
 		retErr = nil
@@ -79,7 +86,8 @@ func IpfsAsyncAdd(os_path string, second int) string {
 	bakPos := &bakpos{100, false}
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Add(uid, "", 0, err.Error())
+			globalCallBack.Add(uid, "", bakPos.pos, err.Error())
+			bakPos.done = true
 			return
 		}
 		// do progress callback
@@ -100,9 +108,12 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			add_hash := result
 			globalCallBack.Add(uid, add_hash, 100, "")
 			bakPos.done = true
+			ipfsDone(uid)
 		}
 	}
-	ipfs_lib.IpfsAsyncAdd(os_path, second, outerCall)
+	cancel := make(chan struct{})
+	loaderMap[uid] = cancel
+	ipfs_lib.IpfsAsyncAdd(os_path, second, outerCall, cancel)
 	return uid
 }
 
@@ -173,7 +184,8 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	bakPos := &bakpos{100, false}
 	outerCall := func(result string, err error) {
 		if err != nil {
-			globalCallBack.Get(uid, 0, err.Error())
+			globalCallBack.Get(uid, bakPos.pos, err.Error())
+			bakPos.done = true
 			return
 		}
 		// do progress callback
@@ -189,12 +201,20 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			globalCallBack.Get(uid, pos, "")
 			return
 		}
+		if result == "" {
+			return
+		}
+
+		fmt.Println(">>>>>>>>>>>>>>>>>IpfsAsyncGet,result=", result)
 		if !bakPos.done {
 			globalCallBack.Get(uid, 100, "")
 			bakPos.done = true
+			ipfsDone(uid)
 		}
 	}
-	ipfs_lib.IpfsAsyncGet(share_hash, save_path, second, outerCall)
+	cancel := make(chan struct{})
+	loaderMap[uid] = cancel
+	ipfs_lib.IpfsAsyncGet(share_hash, save_path, second, outerCall, cancel)
 	return uid
 }
 
@@ -356,6 +376,23 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 
 func IpfsAsyncMessage(peer_id, peer_key, msg string) {
 	ipfs_lib.IpfsAsyncMessage(peer_id, peer_key, msg, func(result string, err error) {})
+}
+
+func IpfsCancel(uuid string) {
+	cancel, ok := loaderMap[uuid]
+	if ok {
+		cancel <- struct{}{}
+		close(cancel)
+		delete(loaderMap, uuid)
+	}
+}
+
+func ipfsDone(uuid string) {
+	cancel, ok := loaderMap[uuid]
+	if ok {
+		close(cancel)
+		delete(loaderMap, uuid)
+	}
 }
 
 func geneUuid() string {

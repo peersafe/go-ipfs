@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	ipfs_mobile "github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
 )
@@ -13,12 +14,38 @@ const (
 	Tab = "===================================================================================="
 )
 
+// func (call *CallBack) Daemon(status int, err string) {
+// 	fmt.Println(Tab)
+// 	fmt.Printf("func=[Daemon],status=[%v],err=[%v]\n", status, err)
+// 	if status == 0 {
+// 		fmt.Println("Daemon start...")
+// 		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/101.201.40.124/tcp/40001/ipfs/QmZDYAhmMDtnoC6XZRw8R1swgoshxKvXDA9oQF97AYkPZc", 5)
+// 	}
+// 	if status == 1 {
+// 		fmt.Println("Daemon shutdown...")
+// 		done <- struct{}{}
+// 	}
+// }
+
 func (call *CallBack) Daemon(status int, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Daemon],status=[%v],err=[%v]\n", status, err)
 	if status == 0 {
 		fmt.Println("Daemon start...")
-		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/101.201.40.124/tcp/40001/ipfs/QmZDYAhmMDtnoC6XZRw8R1swgoshxKvXDA9oQF97AYkPZc", 5)
+
+		// conncet
+		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/172.16.154.129/tcp/4001/ipfs/QmeNgHawAonsK2uAYLMZP5TAa395DdzHUzoPYHgEv3khez", 5)
+
+		// 	add
+		add_uid := ipfs_mobile.IpfsAsyncGet("QmVvvSWZK3csra9QbFMqUrkXtyx1FeSuERpRDpwhJSYkoz", "test", 30)
+		fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
+
+		time.Sleep(2 * time.Second)
+
+		// cancel
+		ipfs_mobile.IpfsCancel(add_uid)
+
+		shutdown()
 	}
 	if status == 1 {
 		fmt.Println("Daemon shutdown...")
@@ -80,14 +107,27 @@ func (call *CallBack) Get(uid string, pos int, err string) {
 	fmt.Printf("func=[Get],uid=[%v],pos=[%v],err=[%v]\n",
 		uid, pos, err)
 	fmt.Printf("uid=%v, ==================== process=%v %\n", uid, pos)
-
+	if err != "" {
+		// shutdown()
+		return
+	}
 	if pos != 100 {
 		return
 	}
 
-	// add
-	add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 30)
-	fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
+	// shutdown()
+	// // add
+	// add_uid := ipfs_mobile.IpfsAsyncAdd("apimain.go", 30)
+	// fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
+}
+
+func shutdown() {
+	e := ipfs_mobile.IpfsShutdown()
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncShutdown],err= ", e)
+		return
+	}
+	fmt.Println("func=[IpfsAsyncShutdown], Over")
 }
 
 func (call *CallBack) Query(object_hash, ipfs_path, result string, err string) {
@@ -110,15 +150,15 @@ func (call *CallBack) ConnectPeer(peer_addr string, err string) {
 		fmt.Println(err)
 		return
 	}
-	id, e := ipfs_mobile.IpfsPeerid("", 5)
-	if e != nil {
-		fmt.Println("func=[IpfsAsyncPeerid],err=", err)
-		return
-	}
-	fmt.Println("func=[IpfsAsyncPeerid],id= ", id)
+	// id, e := ipfs_mobile.IpfsPeerid("", 5)
+	// if e != nil {
+	// 	fmt.Println("func=[IpfsAsyncPeerid],err=", err)
+	// 	return
+	// }
+	// fmt.Println("func=[IpfsAsyncPeerid],id= ", id)
 
-	uid := ipfs_mobile.IpfsAsyncGet("QmfJ6DFC8pTv72JLKzdE1q9LLv1hGdqeUafZ9SFgXWY1kK", "test", 60)
-	fmt.Println("func=[IpfsAsyncGet],uid= ", uid)
+	// uid := ipfs_mobile.IpfsAsyncGet("QmfJ6DFC8pTv72JLKzdE1q9LLv1hGdqeUafZ9SFgXWY1kK", "test", 60)
+	// fmt.Println("func=[IpfsAsyncGet],uid= ", uid)
 }
 
 func (call *CallBack) Message(peer_id, passwd, msg string, err string) {

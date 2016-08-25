@@ -27,8 +27,13 @@ func shutdownFunc(req cmds.Request, res cmds.Response) {
 	}
 	res.SetOutput(&shutdown)
 	node, _ := req.InvocContext().GetNode()
-	send, _, _ := req.InvocContext().GetAsyncChan()
 
-	close(*send) // close chan return corechan for
+	if req.InvocContext().GetAsyncChan != nil {
+		send, _, _ := req.InvocContext().GetAsyncChan()
+		if send != nil {
+			close(*send)
+		}
+	}
+
 	node.Close()
 }

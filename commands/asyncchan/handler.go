@@ -67,6 +67,18 @@ func (i internalHandler) ServeAsyncChan(req cmds.Request) {
 	ctx, cancel := context.WithCancel(node.Context())
 	defer cancel()
 
+	// if cancel be set , stop cmd invocaton
+	if req.Cancel() != nil {
+		go func() {
+			select {
+			case <-req.Cancel():
+				log.Debugf("Current handle be canceled!")
+				cancel()
+				return
+			}
+		}()
+	}
+
 	rlog := i.ctx.ReqLog.Add(req)
 	defer rlog.Finish()
 

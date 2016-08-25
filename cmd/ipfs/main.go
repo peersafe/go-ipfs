@@ -151,7 +151,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	ctx, _ = context.WithCancel(ctx)
+	// ctx, cancel := context.WithCancel(ctx)
 	// pass master context cancelFunc to request
 	// if invoc.cmd == daemonCmd {
 	// 	invoc.req.SetCancelFunc(cancel)
