@@ -11,6 +11,15 @@ import (
 	"github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
 )
 
+//export IpfsInit
+func IpfsInit(path string) int {
+	err := ipfsmobile.IpfsInit(path)
+	if err != nil {
+		return UNKOWN
+	}
+	return SUCCESS
+}
+
 //export IpfsAsyncDaemon
 func IpfsAsyncDaemon(path string,
 	cb_daemon unsafe.Pointer,
@@ -18,9 +27,10 @@ func IpfsAsyncDaemon(path string,
 	cb_get unsafe.Pointer,
 	cb_query unsafe.Pointer,
 	cb_publish unsafe.Pointer,
-	cb_connectpeer unsafe.Pointer) {
+	cb_connectpeer unsafe.Pointer,
+	cb_message unsafe.Pointer) {
 
-	call := caller{cb_daemon, cb_add, cb_get, cb_query, cb_publish, cb_connectpeer}
+	call := caller{cb_daemon, cb_add, cb_get, cb_query, cb_publish, cb_connectpeer, cb_message}
 	ipfsmobile.IpfsAsyncDaemon(path, call)
 }
 
@@ -148,4 +158,14 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult *
 		retErr = UNKOWN
 	}
 	return
+}
+
+//export IpfsMessage
+func IpfsMessage(peer_id, peer_key, msg string) {
+	ipfsmobile.IpfsAsyncMessage(peer_id, peer_key, msg)
+}
+
+//export IpfsCancel
+func IpfsCancel(uuid string) {
+	ipfsmobile.IpfsCancel(uuid)
 }
