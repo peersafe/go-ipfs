@@ -12,10 +12,12 @@ import (
 	"github.com/ipfs/go-ipfs/core/coreunix"
 
 	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
-
+	blockservice "github.com/ipfs/go-ipfs/blockservice"
 	cmds "github.com/ipfs/go-ipfs/commands"
 	files "github.com/ipfs/go-ipfs/commands/files"
 	core "github.com/ipfs/go-ipfs/core"
+	offline "github.com/ipfs/go-ipfs/exchange/offline"
+	dag "github.com/ipfs/go-ipfs/merkledag"
 	dagtest "github.com/ipfs/go-ipfs/merkledag/test"
 	mfs "github.com/ipfs/go-ipfs/mfs"
 	ft "github.com/ipfs/go-ipfs/unixfs"
@@ -155,10 +157,18 @@ You can now refer to the added file in a gateway, like so:
 			n = nilnode
 		}
 
+		dserv := n.DAG
+		local, _, _ := req.Option("local").Bool()
+		if local {
+			offlineexch := offline.Exchange(n.Blockstore)
+			bserv := blockservice.New(n.Blockstore, offlineexch)
+			dserv = dag.NewDAGService(bserv)
+		}
+
 		outChan := make(chan interface{}, 8)
 		res.SetOutput((<-chan interface{})(outChan))
 
-		fileAdder, err := coreunix.NewAdder(req.Context(), n.Pinning, n.Blockstore, n.DAG)
+		fileAdder, err := coreunix.NewAdder(req.Context(), n.Pinning, n.Blockstore, dserv)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return

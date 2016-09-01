@@ -1,11 +1,12 @@
 package blockstore
 
 import (
+	"github.com/ipfs/go-ipfs/blocks"
+	key "github.com/ipfs/go-ipfs/blocks/key"
+	ds "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore"
 	lru "gx/ipfs/QmVYxfoJQiZijTgPNHCHgHELvQpbsJNTg6Crmc3dQkj3yy/golang-lru"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
-	"github.com/ipfs/go-ipfs/blocks"
-	key "github.com/ipfs/go-ipfs/blocks/key"
 )
 
 const (
@@ -35,7 +36,11 @@ func (b *arccache) DeleteBlock(k key.Key) error {
 
 	b.arc.Remove(k) // Invalidate cache before deleting.
 	err := b.blockstore.DeleteBlock(k)
-	if err != nil {
+	switch err {
+	case nil, ds.ErrNotFound, ErrNotFound:
+		b.arc.Add(k, false)
+		return err
+	default:
 		return err
 	}
 	return nil

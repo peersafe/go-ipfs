@@ -10,8 +10,8 @@ import (
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	"github.com/ipfs/go-ipfs/blocks/set"
 	mdag "github.com/ipfs/go-ipfs/merkledag"
-	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
-	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
+	ds "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore"
+	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 )
 
@@ -75,6 +75,10 @@ type Pinner interface {
 	Pin(context.Context, *mdag.Node, bool) error
 	Unpin(context.Context, key.Key, bool) error
 
+	// Check if a set of keys are pinned, more efficient than
+	// calling IsPinned for each key
+	CheckIfPinned(keys ...key.Key) ([]Pinned, error)
+
 	// PinWithMode is for manually editing the pin structure. Use with
 	// care! If used improperly, garbage collection may not be
 	// successful.
@@ -90,6 +94,12 @@ type Pinner interface {
 	InternalPins() []key.Key
 }
 
+type Pinned struct {
+	Key  key.Key
+	Mode PinMode
+	Via  key.Key
+}
+
 // pinner implements the Pinner interface
 type pinner struct {
 	lock       sync.RWMutex
@@ -100,15 +110,14 @@ type pinner struct {
 	// not delete them.
 	internalPin map[key.Key]struct{}
 	dserv       mdag.DAGService
+	internal    mdag.DAGService // dagservice used to store internal objects
 	dstore      ds.Datastore
 }
 
 // NewPinner creates a new pinner using the given datastore as a backend
-func NewPinner(dstore ds.Datastore, serv mdag.DAGService) Pinner {
+func NewPinner(dstore ds.Datastore, serv, internal mdag.DAGService) Pinner {
 
-	// Load set from given datastore...
 	rcset := set.NewSimpleBlockSet()
-
 	dirset := set.NewSimpleBlockSet()
 
 	return &pinner{
@@ -116,6 +125,7 @@ func NewPinner(dstore ds.Datastore, serv mdag.DAGService) Pinner {
 		directPin:  dirset,
 		dserv:      serv,
 		dstore:     dstore,
+		internal:   internal,
 	}
 }
 
@@ -255,6 +265,70 @@ func (p *pinner) isPinnedWithType(k key.Key, mode PinMode) (string, bool, error)
 	return "", false, nil
 }
 
+func (p *pinner) CheckIfPinned(keys ...key.Key) ([]Pinned, error) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	pinned := make([]Pinned, 0, len(keys))
+	toCheck := make(map[key.Key]struct{})
+
+	// First check for non-Indirect pins directly
+	for _, k := range keys {
+		if p.recursePin.HasKey(k) {
+			pinned = append(pinned, Pinned{Key: k, Mode: Recursive})
+		} else if p.directPin.HasKey(k) {
+			pinned = append(pinned, Pinned{Key: k, Mode: Direct})
+		} else if p.isInternalPin(k) {
+			pinned = append(pinned, Pinned{Key: k, Mode: Internal})
+		} else {
+			toCheck[k] = struct{}{}
+		}
+	}
+
+	// Now walk all recursive pins to check for indirect pins
+	var checkChildren func(key.Key, key.Key) error
+	checkChildren = func(rk key.Key, parentKey key.Key) error {
+		parent, err := p.dserv.Get(context.Background(), parentKey)
+		if err != nil {
+			return err
+		}
+		for _, lnk := range parent.Links {
+			k := key.Key(lnk.Hash)
+
+			if _, found := toCheck[k]; found {
+				pinned = append(pinned,
+					Pinned{Key: k, Mode: Indirect, Via: rk})
+				delete(toCheck, k)
+			}
+
+			err := checkChildren(rk, k)
+			if err != nil {
+				return err
+			}
+
+			if len(toCheck) == 0 {
+				return nil
+			}
+		}
+		return nil
+	}
+	for _, rk := range p.recursePin.GetKeys() {
+		err := checkChildren(rk, rk)
+		if err != nil {
+			return nil, err
+		}
+		if len(toCheck) == 0 {
+			break
+		}
+	}
+
+	// Anything left in toCheck is not pinned
+	for k, _ := range toCheck {
+		pinned = append(pinned, Pinned{Key: k, Mode: NotPinned})
+	}
+
+	return pinned, nil
+}
+
 func (p *pinner) RemovePinWithMode(key key.Key, mode PinMode) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -270,7 +344,7 @@ func (p *pinner) RemovePinWithMode(key key.Key, mode PinMode) {
 }
 
 // LoadPinner loads a pinner and its keysets from the given datastore
-func LoadPinner(d ds.Datastore, dserv mdag.DAGService) (Pinner, error) {
+func LoadPinner(d ds.Datastore, dserv, internal mdag.DAGService) (Pinner, error) {
 	p := new(pinner)
 
 	rootKeyI, err := d.Get(pinDatastoreKey)
@@ -287,7 +361,7 @@ func LoadPinner(d ds.Datastore, dserv mdag.DAGService) (Pinner, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*5)
 	defer cancel()
 
-	root, err := dserv.Get(ctx, rootKey)
+	root, err := internal.Get(ctx, rootKey)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find pinning root object: %v", err)
 	}
@@ -300,7 +374,7 @@ func LoadPinner(d ds.Datastore, dserv mdag.DAGService) (Pinner, error) {
 	}
 
 	{ // load recursive set
-		recurseKeys, err := loadSet(ctx, dserv, root, linkRecursive, recordInternal)
+		recurseKeys, err := loadSet(ctx, internal, root, linkRecursive, recordInternal)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load recursive pins: %v", err)
 		}
@@ -308,7 +382,7 @@ func LoadPinner(d ds.Datastore, dserv mdag.DAGService) (Pinner, error) {
 	}
 
 	{ // load direct set
-		directKeys, err := loadSet(ctx, dserv, root, linkDirect, recordInternal)
+		directKeys, err := loadSet(ctx, internal, root, linkDirect, recordInternal)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load direct pins: %v", err)
 		}
@@ -320,6 +394,7 @@ func LoadPinner(d ds.Datastore, dserv mdag.DAGService) (Pinner, error) {
 	// assign services
 	p.dserv = dserv
 	p.dstore = d
+	p.internal = internal
 
 	return p, nil
 }
@@ -348,7 +423,7 @@ func (p *pinner) Flush() error {
 
 	root := &mdag.Node{}
 	{
-		n, err := storeSet(ctx, p.dserv, p.directPin.GetKeys(), recordInternal)
+		n, err := storeSet(ctx, p.internal, p.directPin.GetKeys(), recordInternal)
 		if err != nil {
 			return err
 		}
@@ -358,7 +433,7 @@ func (p *pinner) Flush() error {
 	}
 
 	{
-		n, err := storeSet(ctx, p.dserv, p.recursePin.GetKeys(), recordInternal)
+		n, err := storeSet(ctx, p.internal, p.recursePin.GetKeys(), recordInternal)
 		if err != nil {
 			return err
 		}
@@ -368,12 +443,12 @@ func (p *pinner) Flush() error {
 	}
 
 	// add the empty node, its referenced by the pin sets but never created
-	_, err := p.dserv.Add(new(mdag.Node))
+	_, err := p.internal.Add(new(mdag.Node))
 	if err != nil {
 		return err
 	}
 
-	k, err := p.dserv.Add(root)
+	k, err := p.internal.Add(root)
 	if err != nil {
 		return err
 	}

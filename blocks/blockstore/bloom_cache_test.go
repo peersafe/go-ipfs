@@ -8,9 +8,9 @@ import (
 
 	"github.com/ipfs/go-ipfs/blocks"
 
-	ds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore"
-	dsq "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore/query"
-	syncds "gx/ipfs/QmTxLSvdhwg68WJimdS6icLPhZi28aTp6b7uihC2Yb47Xk/go-datastore/sync"
+	ds "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore"
+	dsq "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore/query"
+	syncds "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore/sync"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 )
 
@@ -65,6 +65,31 @@ func TestHasIsBloomCached(t *testing.T) {
 
 	if float64(cacheFails)/float64(1000) > float64(0.05) {
 		t.Fatal("Bloom filter has cache miss rate of more than 5%")
+	}
+
+	cacheFails = 0
+	block := blocks.NewBlock([]byte("newBlock"))
+
+	cachedbs.PutMany([]blocks.Block{block})
+	if cacheFails != 2 {
+		t.Fatalf("expected two datastore hits: %d", cacheFails)
+	}
+	cachedbs.Put(block)
+	if cacheFails != 3 {
+		t.Fatalf("expected datastore hit: %d", cacheFails)
+	}
+
+	if has, err := cachedbs.Has(block.Key()); !has || err != nil {
+		t.Fatal("has gave wrong response")
+	}
+
+	bl, err := cachedbs.Get(block.Key())
+	if bl.String() != block.String() {
+		t.Fatal("block data doesn't match")
+	}
+
+	if err != nil {
+		t.Fatal("there should't be an error")
 	}
 }
 
