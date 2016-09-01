@@ -6,7 +6,8 @@ import (
 	"strings"
 	"time"
 
-	peer "gx/ipfs/QmRBqJF7hb8ZSpRcMwUt8hNhydWcxGEhtk81HKq6oUwKvs/go-libp2p-peer"
+	pstore "gx/ipfs/QmSZi9ygLohBUGyHMqE5N6eToPwqcg7bZQTULeVLFu7Q6d/go-libp2p-peerstore"
+	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
@@ -57,7 +58,7 @@ Send format message to IPFS node.
 		}
 
 		if addr != nil {
-			n.Peerstore.AddAddr(peerID, addr, peer.TempAddrTTL) // temporary
+			n.Peerstore.AddAddr(peerID, addr, pstore.TempAddrTTL) // temporary
 		}
 
 		key := req.Arguments()[1]
@@ -110,7 +111,7 @@ func remoteMsg(ctx context.Context, n *core.IpfsNode, pid peer.ID, key, msg stri
 				}
 				return
 			}
-			n.Peerstore.AddAddrs(p.ID, p.Addrs, peer.TempAddrTTL)
+			n.Peerstore.AddAddrs(p.ID, p.Addrs, pstore.TempAddrTTL)
 		}
 
 		ctx, cancel := context.WithTimeout(ctx, kRemoteMsgTimeout)

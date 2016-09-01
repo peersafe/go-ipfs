@@ -17,12 +17,13 @@ import (
 	"strings"
 	"time"
 
-	logging "gx/ipfs/QmNQynaz7qfriSUJkiEZUrm2Wen1u3Kj9goZzWtrPyu7XR/go-log"
-	peer "gx/ipfs/QmRBqJF7hb8ZSpRcMwUt8hNhydWcxGEhtk81HKq6oUwKvs/go-libp2p-peer"
-	host "gx/ipfs/QmVCe3SNMjkcPgnpFhZs719dheq6xE7gJwjzV7aWcUM4Ms/go-libp2p/p2p/host"
-	inet "gx/ipfs/QmVCe3SNMjkcPgnpFhZs719dheq6xE7gJwjzV7aWcUM4Ms/go-libp2p/p2p/net"
+	pstore "gx/ipfs/QmSZi9ygLohBUGyHMqE5N6eToPwqcg7bZQTULeVLFu7Q6d/go-libp2p-peerstore"
+	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
+	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
 	ma "gx/ipfs/QmYzDkkgAEmrcNzFCiYo6L1dTX4EAG1gZkbtdbd9trL4vd/go-multiaddr"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+	host "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/host"
+	inet "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net"
 
 	api "github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
 
@@ -235,7 +236,7 @@ func (ps *RemotepinService) delay(peerInfo []string, fpath string) error {
 }
 
 func (ps *RemotepinService) Remotepin(ctx context.Context, p peer.ID, key string, path path.Path) (<-chan error, error) {
-	s, err := ps.Host.NewStream(ctx, ID, p)
+	s, err := ps.Host.NewStream(ctx, p, ID)
 	if err != nil {
 		return nil, err
 	}
@@ -307,13 +308,13 @@ func parseAddresses(addr string) (iaddrs iaddr.IPFSAddr, err error) {
 	return
 }
 
-func peersWithAddresses(addr string) (pis []peer.PeerInfo, err error) {
+func peersWithAddresses(addr string) (pis []pstore.PeerInfo, err error) {
 	iaddr, err := parseAddresses(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	pis = append(pis, peer.PeerInfo{
+	pis = append(pis, pstore.PeerInfo{
 		ID:    iaddr.ID(),
 		Addrs: []ma.Multiaddr{iaddr.Transport()},
 	})

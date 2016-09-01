@@ -8,7 +8,8 @@ import (
 	"regexp"
 	"time"
 
-	peer "gx/ipfs/QmRBqJF7hb8ZSpRcMwUt8hNhydWcxGEhtk81HKq6oUwKvs/go-libp2p-peer"
+	pstore "gx/ipfs/QmSZi9ygLohBUGyHMqE5N6eToPwqcg7bZQTULeVLFu7Q6d/go-libp2p-peerstore"
+	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
 
 	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 
@@ -108,7 +109,7 @@ notify given <peer ID> IPFS node, Pin specific <ipfs path> object to it's local 
 		}
 
 		if addr != nil {
-			n.Peerstore.AddAddr(relay, addr, peer.TempAddrTTL) // temporary
+			n.Peerstore.AddAddr(relay, addr, pstore.TempAddrTTL) // temporary
 		}
 
 		matchstr := "^[a-zA-Z0-9-`=\\\\\\[\\];'\",./~!@#$%^&*()_+|{}:<>?]{8}$"
@@ -154,7 +155,7 @@ func relayPinPeer(ctx context.Context, n *core.IpfsNode, relay peer.ID, relaykey
 				}
 				return
 			}
-			n.Peerstore.AddAddrs(p.ID, p.Addrs, peer.TempAddrTTL)
+			n.Peerstore.AddAddrs(p.ID, p.Addrs, pstore.TempAddrTTL)
 		}
 
 		ctx, cancel := context.WithTimeout(ctx, kRelayPinTimeout)
