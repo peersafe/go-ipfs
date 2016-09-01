@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
@@ -29,17 +30,11 @@ type statInfo struct {
 	Hash string
 }
 
-var GApiCmd apicmd
-
 type apicmd struct {
 }
 
 func (a apicmd) Cmd(str string, sec int) (int, string, error) {
 	return ipfsCmdTime(str, sec)
-}
-
-func init() {
-	apiinterface.GApiInterface = GApiCmd
 }
 
 func IpfsPath(path string) (int, string) {
@@ -68,6 +63,11 @@ func IpfsInit() (int, string) {
 }
 
 func IpfsDaemon() (int, string) {
+	// init apiinterface for remote cmds
+	if apiinterface.GApiInterface == nil {
+		apiinterface.GApiInterface = new(apicmd)
+	}
+
 	cmd := strings.Join([]string{"ipfs", "daemon"}, cmdSep)
 	ret, str, err := ipfsCmd(cmd)
 	if err != nil {
@@ -290,10 +290,10 @@ func IpfsShard(object_hash, shard_name string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsGet(shard_hash, os_path string, second int) int {
+func IpfsGet(share_hash, os_path string, second int) int {
 	var err error
-	if shard_hash, err = ipfsHashCheck(shard_hash); err != nil {
-		fmt.Println("shard_hash format error")
+	if share_hash, err = ipfsHashCheck(share_hash); err != nil {
+		fmt.Println("share_hash format error")
 		return PARA_ERR
 	}
 	if len(os_path) == 0 {
@@ -307,7 +307,7 @@ func IpfsGet(shard_hash, os_path string, second int) int {
 		return PARA_ERR
 	}
 
-	cmd := strings.Join([]string{"ipfs", "get", shard_hash, "-o", os_path}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
 	ret, _, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -357,14 +357,14 @@ func IpfsQuery(object_hash, ipfs_path string, second int) (int, string) {
 	return SUCCESS, str
 }
 
-func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string) {
+func IpfsMerge(root_hash, ipfs_path, share_hash string, second int) (int, string) {
 	var err error
 	if root_hash, err = ipfsObjectHashCheck(root_hash); err != nil {
 		fmt.Println("root_hash len not 46")
 		return PARA_ERR, ""
 	}
-	if shard_hash, err = ipfsObjectHashCheck(shard_hash); err != nil {
-		fmt.Println("shard_hash len not 46")
+	if share_hash, err = ipfsObjectHashCheck(share_hash); err != nil {
+		fmt.Println("share_hash len not 46")
 		return PARA_ERR, ""
 	}
 
@@ -379,7 +379,7 @@ func IpfsMerge(root_hash, ipfs_path, shard_hash string, second int) (int, string
 		return PARA_ERR, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, shard_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", root_hash, ipfs_path, share_hash}, cmdSep)
 	ret, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -602,10 +602,16 @@ func ipfsCmd(cmd string) (int, string, error) {
 
 func ipfsCmdTime(cmd string, second int) (r int, s string, e error) {
 	if len(strings.Trim(ipfsPath, " ")) > 0 {
-		cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
+		if second != 0 {
+			timeout := "--timeout=" + strconv.Itoa(second) + "s"
+			cmd = strings.Join([]string{cmd, "-c", ipfsPath, timeout}, cmdSep)
+		} else {
+			cmd = strings.Join([]string{cmd, "-c", ipfsPath}, cmdSep)
+
+		}
 	}
 	fmt.Println(cmd)
-	return ipfsMain(cmd, second)
+	return ipfsMain(cmd)
 }
 
 func ipfsPathClean(ipfsPath string) (string, error) {
@@ -614,6 +620,9 @@ func ipfsPathClean(ipfsPath string) (string, error) {
 	}
 
 	path := ipfsPath[1:]
+	if len(path) <= 0 {
+		return "", errors.New("ipfs path is nil!")
+	}
 	if strings.HasPrefix(path, "-") {
 		path = "\"" + path + "\""
 	}

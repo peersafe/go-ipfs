@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -26,6 +27,7 @@ import (
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
+	cmdsAsyncChan "github.com/ipfs/go-ipfs/commands/asyncchan"
 	cmdsCli "github.com/ipfs/go-ipfs/commands/cli"
 	cmdsHttp "github.com/ipfs/go-ipfs/commands/http"
 	core "github.com/ipfs/go-ipfs/core"
@@ -53,11 +55,113 @@ const (
 )
 
 type cmdInvocation struct {
-	path    []string
-	cmd     *cmds.Command
-	req     cmds.Request
-	node    *core.IpfsNode
-	timeout time.Duration
+	path []string
+	cmd  *cmds.Command
+	req  cmds.Request
+	node *core.IpfsNode
+}
+
+type apiInstance struct {
+	asyncChanSend chan<- cmds.Request
+	asyncChanRecv <-chan cmds.Request
+	ipfsAsyncPath string
+}
+
+type Instance interface {
+	AsyncApi(cmd string, call cmds.RequestCB, cancel chan struct{}) (r int, s string, e error)
+	AsyncPath() string
+	SetAsyncPath(string)
+}
+
+func NewInstance(path string) Instance {
+	asyncChan := make(chan cmds.Request, 1024)
+	apiInstance := apiInstance{
+		(chan<- cmds.Request)(asyncChan),
+		(<-chan cmds.Request)(asyncChan),
+		path,
+	}
+
+	return &apiInstance
+}
+
+func (ins *apiInstance) AsyncPath() string {
+	return ins.ipfsAsyncPath
+}
+
+func (ins *apiInstance) SetAsyncPath(path string) {
+	ins.ipfsAsyncPath = path
+}
+
+func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB, cancel chan struct{}) (r int, s string, e error) {
+	defer func() {
+		if err := recover(); err != nil {
+			debug.PrintStack()
+			log.Errorf("async_daemon error:%v", err)
+			r, s, e = UNKOWN, "", errors.New("Excption error!!!!!!!!!!!!")
+		}
+	}()
+	rand.Seed(time.Now().UnixNano())
+	runtime.GOMAXPROCS(3)
+
+	ctx := logging.ContextWithLoggable(context.Background(), loggables.Uuid("session"))
+	var err error
+	var invoc cmdInvocation
+	defer invoc.close()
+	var outBuf bytes.Buffer
+
+	// this is so we control how to print errors in one place.
+	printErr := func(err error) string {
+		return fmt.Sprintf("Error: %s\n", err.Error())
+	}
+
+	stopFunc, err := profileIfEnabled()
+	if err != nil {
+		return UNKOWN, printErr(err), err
+	}
+	defer stopFunc() // to be executed as late as possible
+
+	args := strings.Split(cmd, cmdSep)
+
+	// parse the commandline into a command invocation
+	parseErr := invoc.Parse(ctx, args[1:])
+	if parseErr != nil {
+		str := printErr(parseErr)
+		return PARA_ERR, str, parseErr
+	}
+
+	invoc.req.InvocContext().GetAsyncChan = func() (*(chan<- cmds.Request), *(<-chan cmds.Request), error) {
+		return &ins.asyncChanSend, &ins.asyncChanRecv, nil
+	}
+
+	// callback func
+	*(invoc.req.CallBack()) = call
+
+	// cancel channel
+	if cancel != nil {
+		invoc.req.SetCancel(cancel)
+	}
+
+	output, err := invoc.Run(ctx)
+	if err != nil {
+		str := printErr(err)
+		if isTimeout(err) {
+			return TIMEOUT, "Request timeout.", err
+		}
+		return SUCCESS, str, err
+	}
+
+	// everything went better than expected :)
+	_, err = io.Copy(&outBuf, output)
+	if err != nil {
+		return UNKOWN, printErr(err), err
+	}
+
+	// timeout maybe return by api server
+	if strings.Contains(strings.ToLower(outBuf.String()), "timeout") {
+		return TIMEOUT, "Api server operation timeout.", errors.New("Api server operation timeout.")
+	}
+
+	return SUCCESS, outBuf.String(), nil
 }
 
 // main roadmap:
@@ -66,7 +170,7 @@ type cmdInvocation struct {
 // - run the command invocation
 // - output the response
 // - if anything fails, print error, maybe with help
-func ipfsMain(cmd string, second int) (r int, s string, e error) {
+func ipfsMain(cmd string) (r int, s string, e error) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
@@ -121,7 +225,6 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 
 	// parse the commandline into a command invocation
 	parseErr := invoc.Parse(ctx, args[1:])
-	invoc.timeout = time.Duration(second) * time.Second
 
 	// BEFORE handling the parse error, if we have enough information
 	// AND the user requested help, print it out and exit
@@ -157,12 +260,6 @@ func ipfsMain(cmd string, second int) (r int, s string, e error) {
 	if invoc.cmd == nil || invoc.cmd.Run == nil {
 		printHelp(false, &outBuf)
 		return SUCCESS, outBuf.String(), nil
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	// pass master context cancelFunc to request
-	if invoc.cmd == daemonCmd {
-		invoc.req.SetCancelFunc(cancel)
 	}
 
 	// ok, finally, run the command invocation.
@@ -212,7 +309,7 @@ func (i *cmdInvocation) Run(ctx context.Context) (output io.Reader, err error) {
 		u.Debug = true
 	}
 
-	res, err := callCommand(ctx, i.req, Root, i.cmd, i.timeout)
+	res, err := callCommand(ctx, i.req, Root, i.cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +416,7 @@ func callPreCommandHooks(ctx context.Context, details cmdDetails, req cmds.Reque
 	return nil
 }
 
-func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command, timeout time.Duration) (cmds.Response, error) {
+func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd *cmds.Command) (cmds.Response, error) {
 	log.Info(config.EnvDir, " ", req.InvocContext().ConfigRoot)
 	var res cmds.Response
 
@@ -351,18 +448,17 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 	}
 
 	if client != nil && !cmd.External {
-		log.Debug("executing command via API")
-		client.SetTimeOut(timeout)
+		log.Debug("executing command via API or Async")
 		res, err = client.Send(req)
 		if err != nil {
 			if isConnRefused(err) {
 				err = repo.ErrApiNotRunning
+				return nil, err
 			}
 			return nil, wrapContextCanceled(err)
 		}
 	} else {
 		log.Debug("executing command locally")
-
 		err := req.SetRootContext(ctx)
 		if err != nil {
 			return nil, err
@@ -370,10 +466,9 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 
 		// Okay!!!!! NOW we can call the command.
 		res = root.Call(req)
-
 	}
 
-	if cmd.PostRun != nil {
+	if cmd.PostRun != nil && req.InvocContext().GetAsyncChan == nil {
 		cmd.PostRun(req, res)
 	}
 
@@ -408,7 +503,7 @@ func commandDetails(path []string, root *cmds.Command) (*cmdDetails, error) {
 // It returns a client if the command should be executed on a daemon and nil if
 // it should be executed on a client. It returns an error if the command must
 // NOT be executed on either.
-func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.Command) (cmdsHttp.Client, error) {
+func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.Command) (cmds.Client, error) {
 	path := req.Path()
 	// root command.
 	if len(path) < 1 {
@@ -432,7 +527,13 @@ func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.C
 		return nil, err
 	}
 
-	client, err := getApiClient(req.InvocContext().ConfigRoot, apiAddrStr)
+	var client cmds.Client
+	if req.InvocContext().GetAsyncChan == nil {
+		client, err = getApiClient(req.InvocContext().ConfigRoot, apiAddrStr)
+	} else {
+		client, err = getAsyncApiClient(req.InvocContext().ConfigRoot, apiAddrStr)
+	}
+
 	if err == repo.ErrApiNotRunning {
 		if apiAddrStr != "" && req.Command() != daemonCmd {
 			// if user SPECIFIED an api, and this cmd is not daemon
@@ -616,7 +717,7 @@ func profileIfEnabled() (func(), error) {
 // getApiClient checks the repo, and the given options, checking for
 // a running API service. if there is one, it returns a client.
 // otherwise, it returns errApiNotRunning, or another error.
-func getApiClient(repoPath, apiAddrStr string) (cmdsHttp.Client, error) {
+func getApiClient(repoPath, apiAddrStr string) (cmds.Client, error) {
 
 	if apiAddrStr == "" {
 		var err error
@@ -633,13 +734,29 @@ func getApiClient(repoPath, apiAddrStr string) (cmdsHttp.Client, error) {
 	return apiClientForAddr(addr)
 }
 
-func apiClientForAddr(addr ma.Multiaddr) (cmdsHttp.Client, error) {
+func apiClientForAddr(addr ma.Multiaddr) (cmds.Client, error) {
 	_, host, err := manet.DialArgs(addr)
 	if err != nil {
 		return nil, err
 	}
 
 	return cmdsHttp.NewClient(host), nil
+}
+
+func getAsyncApiClient(repoPath, apiAddrStr string) (cmds.Client, error) {
+	if apiAddrStr == "" {
+		var err error
+		if apiAddrStr, err = fsrepo.APIAddr(repoPath); err != nil {
+			return nil, err
+		}
+	}
+
+	_, err := ma.NewMultiaddr(apiAddrStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return cmdsAsyncChan.NewClient(), nil
 }
 
 func isConnRefused(err error) bool {

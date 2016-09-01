@@ -115,6 +115,7 @@ var rootSubcommands = map[string]*cmds.Command{
 	"remotepin": RemotePinCmd,
 	"remotels":  RemoteLsCmd,
 	"relaypin":  RelayPinCmd,
+	"remotemsg": RemoteMsgCmd,
 	"shutdown":  ShutdownCmd,
 }
 

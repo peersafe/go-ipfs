@@ -150,7 +150,7 @@ func (p *RelaypinService) relayRequest(msg RelaypinMsg) error {
 			}
 		}()
 
-		err := p.relayPeer(msg.peer, msg.key, msg.path)
+		err := p.RelayPeer(msg.peer, msg.key, msg.path)
 		if err != nil {
 			log.Errorf("relay request errer:%v", err)
 		}
@@ -190,7 +190,7 @@ func (p *RelaypinService) relayRequest(msg RelaypinMsg) error {
 	return nil
 }
 
-func (ps *RelaypinService) relayPeer(p, key, fpath string) error {
+func (ps *RelaypinService) RelayPeer(p, key, fpath string) error {
 	log.Debugf("relayPeer remote[%v]", p)
 
 	_, pid, err := parsePeerParam(p)

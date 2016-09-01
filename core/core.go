@@ -52,6 +52,7 @@ import (
 	mfs "github.com/ipfs/go-ipfs/mfs"
 	relaypin "github.com/ipfs/go-ipfs/remotecmd/relaypin"
 	remotels "github.com/ipfs/go-ipfs/remotecmd/remotels"
+	remotemsg "github.com/ipfs/go-ipfs/remotecmd/remotemsg"
 	remotepin "github.com/ipfs/go-ipfs/remotecmd/remotepin"
 
 	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
@@ -119,6 +120,7 @@ type IpfsNode struct {
 	Relaypin     *relaypin.RelaypinService
 	Remotepin    *remotepin.RemotepinService
 	Remotels     *remotels.RemotelsService
+	Remotemsg    *remotemsg.RemotemsgService
 
 	proc goprocess.Process
 	ctx  context.Context
@@ -230,6 +232,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	n.Remotepin = remotepin.NewRemotepinService(host, cfg.Identity.Secret, cfg.RemoteMultiplex)
 	n.Remotels = remotels.NewRemotelsService(host, cfg.Identity.Secret)
 	n.Relaypin = relaypin.NewRelaypinService(host, cfg.Identity.Secret)
+	n.Remotemsg = remotemsg.NewRemotemsgService(host, cfg.Identity.Secret)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())

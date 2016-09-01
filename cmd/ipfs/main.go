@@ -151,11 +151,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	// ctx, cancel := context.WithCancel(ctx)
 	// pass master context cancelFunc to request
-	if invoc.cmd == daemonCmd {
-		invoc.req.SetCancelFunc(cancel)
-	}
+	// if invoc.cmd == daemonCmd {
+	// 	invoc.req.SetCancelFunc(cancel)
+	// }
 
 	// ok, finally, run the command invocation.
 	intrh, ctx := invoc.SetupInterruptHandler(ctx)
@@ -392,7 +392,7 @@ func commandDetails(path []string, root *cmds.Command) (*cmdDetails, error) {
 // It returns a client if the command should be executed on a daemon and nil if
 // it should be executed on a client. It returns an error if the command must
 // NOT be executed on either.
-func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.Command) (cmdsHttp.Client, error) {
+func commandShouldRunOnDaemon(details cmdDetails, req cmds.Request, root *cmds.Command) (cmds.Client, error) {
 	path := req.Path()
 	// root command.
 	if len(path) < 1 {
@@ -600,7 +600,7 @@ func profileIfEnabled() (func(), error) {
 // getApiClient checks the repo, and the given options, checking for
 // a running API service. if there is one, it returns a client.
 // otherwise, it returns errApiNotRunning, or another error.
-func getApiClient(repoPath, apiAddrStr string) (cmdsHttp.Client, error) {
+func getApiClient(repoPath, apiAddrStr string) (cmds.Client, error) {
 
 	if apiAddrStr == "" {
 		var err error
@@ -617,7 +617,7 @@ func getApiClient(repoPath, apiAddrStr string) (cmdsHttp.Client, error) {
 	return apiClientForAddr(addr)
 }
 
-func apiClientForAddr(addr ma.Multiaddr) (cmdsHttp.Client, error) {
+func apiClientForAddr(addr ma.Multiaddr) (cmds.Client, error) {
 	_, host, err := manet.DialArgs(addr)
 	if err != nil {
 		return nil, err

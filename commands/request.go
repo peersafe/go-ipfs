@@ -30,6 +30,8 @@ type Context struct {
 
 	node          *core.IpfsNode
 	ConstructNode func() (*core.IpfsNode, error)
+
+	GetAsyncChan func() (*(chan<- Request), *(<-chan Request), error)
 }
 
 // GetConfig returns the config of the current Command exection
@@ -64,6 +66,8 @@ func (c *Context) NodeWithoutConstructing() *core.IpfsNode {
 	return c.node
 }
 
+type RequestCB func(string, error)
+
 // Request represents a call to a command from a consumer
 type Request interface {
 	Path() []string
@@ -84,8 +88,10 @@ type Request interface {
 	Values() map[string]interface{}
 	Stdin() io.Reader
 	VarArgs(func(string) error) error
-	SetCancelFunc(context.CancelFunc)
-	CancelFunc() context.CancelFunc
+	CallBack() *RequestCB
+
+	Cancel() chan struct{}
+	SetCancel(ch chan struct{})
 
 	ConvertOptions() error
 }
@@ -102,7 +108,8 @@ type request struct {
 	values     map[string]interface{}
 	stdin      io.Reader
 	islib      bool
-	cancelFunc context.CancelFunc
+	callBack   RequestCB
+	cancel     chan struct{}
 }
 
 // Path returns the command path of this request
@@ -209,12 +216,16 @@ func (r *request) Context() context.Context {
 	return r.rctx
 }
 
-func (r *request) SetCancelFunc(cancel context.CancelFunc) {
-	r.cancelFunc = cancel
+func (r *request) CallBack() *RequestCB {
+	return &(*r).callBack
 }
 
-func (r *request) CancelFunc() context.CancelFunc {
-	return r.cancelFunc
+func (r *request) SetCancel(ch chan struct{}) {
+	r.cancel = ch
+}
+
+func (r *request) Cancel() chan struct{} {
+	return r.cancel
 }
 
 func (r *request) haveVarArgsFromStdin() bool {

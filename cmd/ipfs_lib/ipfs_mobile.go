@@ -84,8 +84,8 @@ func Ipfs_add(os_path string, second int) string {
 	}
 }
 
-func Ipfs_get(shard_hash, os_path string, second int) string {
-	res := IpfsGet(shard_hash, os_path, second)
+func Ipfs_get(share_hash, os_path string, second int) string {
+	res := IpfsGet(share_hash, os_path, second)
 	return fmt.Sprintf("%d%s%s", res, cmdSep, "")
 }
 

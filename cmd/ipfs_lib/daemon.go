@@ -21,8 +21,10 @@ import (
 	prometheus "gx/ipfs/QmdhsRK1EK2fvAz2i2SH5DEfkL6seDuyMYEsxKa9Braim3/client_golang/prometheus"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
+	cmdsAsyncChan "github.com/ipfs/go-ipfs/commands/asyncchan"
 	"github.com/ipfs/go-ipfs/core"
 	commands "github.com/ipfs/go-ipfs/core/commands"
+	corechan "github.com/ipfs/go-ipfs/core/corechan"
 	corehttp "github.com/ipfs/go-ipfs/core/corehttp"
 	corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 	"github.com/ipfs/go-ipfs/core/corerouting"
@@ -302,7 +304,13 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 	defer func() {
 		// We wait for the node to close first, as the node has children
 		// that it will wait for before closing, such as the API server.
+		node.Closer <- struct{}{}
 		node.Close()
+
+		if req.InvocContext().GetAsyncChan != nil {
+			// daemon shutdown
+			(*req.CallBack())("Shutdown", nil)
+		}
 
 		select {
 		case <-req.Context().Done():
@@ -315,22 +323,32 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 		return node, nil
 	}
 
-	// construct api endpoint - every time
-	err, apiErrc := serveHTTPApi(req)
-	if err != nil {
-		res.SetError(err, cmds.ErrNormal)
-		return
-	}
+	var errc []<-chan error
 
-	// construct http gateway - if it is set in the config
-	var gwErrc <-chan error
-	if len(cfg.Addresses.Gateway) > 0 {
-		var err error
-		err, gwErrc = serveHTTPGateway(req)
+	if req.InvocContext().GetAsyncChan == nil {
+		// construct api endpoint - every time
+		err, apiErrc := serveHTTPApi(req)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
+		errc = append(errc, apiErrc)
+
+		// construct http gateway - if it is set in the config
+		var gwErrc <-chan error
+		if len(cfg.Addresses.Gateway) > 0 {
+			var err error
+			err, gwErrc = serveHTTPGateway(req)
+			if err != nil {
+				res.SetError(err, cmds.ErrNormal)
+				return
+			}
+		}
+		errc = append(errc, gwErrc)
+	} else {
+		var asyncErrc <-chan error
+		err, asyncErrc = serveAsyncApi(req)
+		errc = append(errc, asyncErrc)
 	}
 
 	// construct fuse mountpoints - if the user provided the --mount flag
@@ -352,15 +370,22 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 		res.SetError(err, cmds.ErrNormal)
 		return
 	}
+	errc = append(errc, gcErrc)
 
 	// initialize metrics collector
 	prometheus.MustRegisterOrGet(&corehttp.IpfsNodeCollector{Node: node})
 	prometheus.EnableCollectChecks(true)
 
 	fmt.Printf("Daemon is ready\n")
+
+	if req.InvocContext().GetAsyncChan != nil {
+		// daemon start call
+		(*req.CallBack())("Start", nil)
+	}
+
 	// collect long-running errors and block for shutdown
 	// TODO(cryptix): our fuse currently doesnt follow this pattern for graceful shutdown
-	for err := range merge(apiErrc, gwErrc, gcErrc) {
+	for err := range merge(errc...) {
 		if err != nil {
 			log.Error(err)
 			res.SetError(err, cmds.ErrNormal)
@@ -411,7 +436,7 @@ func serveHTTPApi(req cmds.Request) (error, <-chan error) {
 
 	var opts = []corehttp.ServeOption{
 		corehttp.MetricsCollectionOption("api"),
-		corehttp.CommandsOption(*req.InvocContext(), req.CancelFunc()),
+		corehttp.CommandsOption(*req.InvocContext()),
 		corehttp.WebUIOption,
 		gatewayOpt,
 		corehttp.VersionOption(),
@@ -494,7 +519,7 @@ func serveHTTPGateway(req cmds.Request) (error, <-chan error) {
 
 	var opts = []corehttp.ServeOption{
 		corehttp.MetricsCollectionOption("gateway"),
-		corehttp.CommandsROOption(*req.InvocContext(), req.CancelFunc()),
+		corehttp.CommandsROOption(*req.InvocContext()),
 		corehttp.VersionOption(),
 		corehttp.IPNSHostnameOption(),
 		corehttp.GatewayOption("/ipfs", "/ipns"),
@@ -512,6 +537,45 @@ func serveHTTPGateway(req cmds.Request) (error, <-chan error) {
 	errc := make(chan error)
 	go func() {
 		errc <- corehttp.Serve(node, gwLis.NetListener(), opts...)
+		close(errc)
+	}()
+	return nil, errc
+}
+
+// serveHTTPApi collects options, creates listener, prints status message and starts serving requests
+func serveAsyncApi(req cmds.Request) (error, <-chan error) {
+	cfg, err := req.InvocContext().GetConfig()
+	if err != nil {
+		return fmt.Errorf("serveHTTPApi: GetConfig() failed: %s", err), nil
+	}
+
+	apiAddr, _, err := req.Option(commands.ApiOption).String()
+	if err != nil {
+		return fmt.Errorf("serveHTTPApi: %s", err), nil
+	}
+	if apiAddr == "" {
+		apiAddr = cfg.Addresses.API
+	}
+
+	node, err := req.InvocContext().ConstructNode()
+	if err != nil {
+		return fmt.Errorf("serveHTTPApi: ConstructNode() failed: %s", err), nil
+	}
+
+	if err := node.Repo.SetAPIAddr(apiAddr); err != nil {
+		return fmt.Errorf("serveHTTPApi: SetAPIAddr() failed: %s", err), nil
+	}
+
+	handle := cmdsAsyncChan.NewHandler(*req.InvocContext(), commands.Root)
+
+	_, recv, _ := req.InvocContext().GetAsyncChan()
+
+	errc := make(chan error)
+	go func() {
+		log.Debugf(">>>>>>>>>>>>>corechan.Serve Start")
+		errc <- corechan.Serve(node, recv, handle)
+		log.Debugf(">>>>>>>>>>>>>corechan.Serve Stop")
+
 		close(errc)
 	}()
 	return nil, errc
