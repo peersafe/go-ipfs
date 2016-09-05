@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	ipfs_mobile "github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
 )
@@ -34,18 +33,18 @@ func (call *CallBack) Daemon(status int, err string) {
 		fmt.Println("Daemon start...")
 
 		// conncet
-		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/172.16.154.129/tcp/4001/ipfs/QmeNgHawAonsK2uAYLMZP5TAa395DdzHUzoPYHgEv3khez", 5)
+		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/172.16.154.129/tcp/4001/ipfs/QmV2Brdna6A1kwpYmPRp3PaTJmR6ynr1KN4znBC35EkSkF", 5)
 
 		// 	add
-		add_uid := ipfs_mobile.IpfsAsyncGet("QmVvvSWZK3csra9QbFMqUrkXtyx1FeSuERpRDpwhJSYkoz", "test", 30)
+		add_uid := ipfs_mobile.IpfsAsyncGet("QmVvvSWZK3csra9QbFMqUrkXtyx1FeSuERpRDpwhJSYkoz", "test", 10)
 		fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
 
-		time.Sleep(2 * time.Second)
+		// time.Sleep(2 * time.Second)
 
-		// cancel
-		ipfs_mobile.IpfsCancel(add_uid)
+		// // cancel
+		// ipfs_mobile.IpfsCancel(add_uid)
 
-		shutdown()
+		// shutdown()
 	}
 	if status == 1 {
 		fmt.Println("Daemon shutdown...")
@@ -54,6 +53,13 @@ func (call *CallBack) Daemon(status int, err string) {
 }
 
 func (call *CallBack) Add(uid, add_hash string, pos int, err string) {
+	if err == "timeout" {
+		fmt.Println("receive timeout")
+		ipfs_mobile.IpfsCancel(uid)
+		shutdown()
+		return
+	}
+
 	fmt.Println(Tab)
 	fmt.Printf("func=[Add],uid=[%v],add_hash=[%v],pos=[%v],err=[%v]\n",
 		uid, add_hash, pos, err)
@@ -103,6 +109,14 @@ func (call *CallBack) Add(uid, add_hash string, pos int, err string) {
 }
 
 func (call *CallBack) Get(uid string, pos int, err string) {
+
+	if err == "timeout" {
+		fmt.Println("receive timeout")
+		ipfs_mobile.IpfsCancel(uid)
+		shutdown()
+		return
+	}
+
 	fmt.Println(Tab)
 	fmt.Printf("func=[Get],uid=[%v],pos=[%v],err=[%v]\n",
 		uid, pos, err)
@@ -114,6 +128,13 @@ func (call *CallBack) Get(uid string, pos int, err string) {
 	if pos != 100 {
 		return
 	}
+
+	e := ipfs_mobile.IpfsShutdown()
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncShutdown],err= ", e)
+		return
+	}
+	fmt.Println("func=[IpfsAsyncShutdown], Over")
 
 	// shutdown()
 	// // add
