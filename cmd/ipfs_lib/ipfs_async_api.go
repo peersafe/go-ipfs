@@ -724,13 +724,7 @@ func ipfsAsyncCmdWithCancel(cmd string, second int, call commands.RequestCB, can
 	}
 	ipfsAsyncPath := asyncApiIns.AsyncPath()
 	if len(strings.Trim(ipfsAsyncPath, " ")) > 0 {
-		if second != 0 {
-			timeout := "--timeout=" + strconv.Itoa(second) + "s"
-			cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath, timeout}, cmdSep)
-		} else {
-			cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath}, cmdSep)
-
-		}
+		cmd = strings.Join([]string{cmd, "-c", ipfsAsyncPath}, cmdSep)
 	}
 	fmt.Println(cmd)
 	return asyncApiIns.AsyncApi(cmd, call, cancel)

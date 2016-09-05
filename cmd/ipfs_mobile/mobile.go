@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
 	"github.com/ipfs/go-ipfs/cmd/ipfs_mobile/callback"
@@ -84,6 +85,26 @@ type bakpos struct {
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
 	bakPos := &bakpos{100, false}
+
+	heartBeat := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(time.Second * time.Duration(second))
+		for {
+			select {
+			case <-heartBeat:
+				timer = time.NewTimer(time.Second * time.Duration(second))
+			case <-timer.C:
+				globalCallBack.Add(uid, "", bakPos.pos, "timeout")
+				ipfsDone(uid)
+				return
+			default:
+				if bakPos.done {
+					ipfsDone(uid)
+					return
+				}
+			}
+		}
+	}()
 	outerCall := func(result string, err error) {
 		if err != nil {
 			globalCallBack.Add(uid, "", bakPos.pos, err.Error())
@@ -99,6 +120,9 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			if pos == 100 || bakPos.pos == pos {
 				return
 			}
+
+			heartBeat <- struct{}{}
+
 			bakPos.pos = pos
 			globalCallBack.Add(uid, "", pos, "")
 			return
@@ -182,6 +206,25 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
 	bakPos := &bakpos{100, false}
+	heartBeat := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(time.Duration(second) * time.Second)
+		for {
+			select {
+			case <-heartBeat:
+				timer = time.NewTimer(time.Duration(second) * time.Second)
+			case <-timer.C:
+				globalCallBack.Get(uid, bakPos.pos, "timeout")
+				ipfsDone(uid)
+				return
+			default:
+				if bakPos.done {
+					ipfsDone(uid)
+					return
+				}
+			}
+		}
+	}()
 	outerCall := func(result string, err error) {
 		if err != nil {
 			globalCallBack.Get(uid, bakPos.pos, err.Error())
@@ -197,6 +240,9 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			if pos == 100 || bakPos.pos == pos {
 				return
 			}
+
+			heartBeat <- struct{}{}
+
 			bakPos.pos = pos
 			globalCallBack.Get(uid, pos, "")
 			return
