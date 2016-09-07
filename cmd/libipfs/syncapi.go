@@ -4,6 +4,8 @@ package main
 #include <string.h>
 #include <stdlib.h>
 */
+
+/*
 import "C"
 import (
 	"unsafe"
@@ -203,3 +205,4 @@ func goStringToChar(str string, out_res *C.char) {
 	C.memcpy(unsafe.Pointer(out_res), cs, C.size_t(len(str)))
 	C.free(cs)
 }
+*/

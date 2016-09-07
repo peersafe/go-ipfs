@@ -273,6 +273,27 @@ func IpfsAsyncQuery(object_hash, ipfs_path string, second int) {
 	ipfs_lib.IpfsAsyncQuery(object_hash, ipfs_path, second, outerCall)
 }
 
+func IpfsQuery(object_hash, ipfs_path string, second int) (queryReuslt string, retErr error) {
+	sync := make(chan struct{})
+	defer close(sync)
+	outerCall := func(result string, err error) {
+		if err != nil {
+			queryReuslt, retErr = "", err
+			sync <- struct{}{}
+			return
+		}
+		if result == "" {
+			return
+		}
+		queryReuslt, retErr = result, nil
+		sync <- struct{}{}
+	}
+	ipfs_lib.IpfsAsyncQuery(object_hash, ipfs_path, second, outerCall)
+	<-sync
+
+	return
+}
+
 func IpfsMerge(root_hash, ipfs_path, share_hash string, second int) (new_root string, retErr error) {
 	sync := make(chan struct{})
 	defer close(sync)
