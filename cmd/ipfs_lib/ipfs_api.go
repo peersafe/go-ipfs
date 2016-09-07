@@ -261,25 +261,25 @@ func IpfsMove(root_hash, ipfs_path_src, ipfs_path_des string, second int) (int, 
 	return SUCCESS, new_root_hash
 }
 
-func IpfsShard(object_hash, shard_name string, second int) (int, string) {
+func IpfsShare(object_hash, share_name string, second int) (int, string) {
 	var err error
 	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
 		fmt.Println("object_hash len not 46")
 		return PARA_ERR, ""
 	}
 
-	if len(shard_name) == 0 {
-		fmt.Println("shard_name len is 0")
+	if len(share_name) == 0 {
+		fmt.Println("share_name len is 0")
 		return PARA_ERR, ""
 	}
 
-	shard_name, err = ipfsPathClean(shard_name)
+	share_name, err = ipfsPathClean(share_name)
 	if err != nil {
 		fmt.Println(err)
 		return PARA_ERR, ""
 	}
 
-	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", shard_name, object_hash}, cmdSep)
+	cmd := strings.Join([]string{"ipfs", "object", "patch", "add-link", "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn", share_name, object_hash}, cmdSep)
 	ret, str, err := ipfsCmdTime(cmd, second)
 	if err != nil {
 		fmt.Println(err)
@@ -297,7 +297,7 @@ func IpfsGet(share_hash, os_path string, second int) int {
 		return PARA_ERR
 	}
 	if len(os_path) == 0 {
-		fmt.Println("shard_name len is 0")
+		fmt.Println("share_name len is 0")
 		return PARA_ERR
 	}
 

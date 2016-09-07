@@ -262,7 +262,7 @@ func IpfsAsyncMove(root_hash, ipfs_path_src, ipfs_path_des string, second int, o
 	}
 }
 
-func IpfsAsyncShard(object_hash, share_name string, second int, outerCall commands.RequestCB) {
+func IpfsAsyncShare(object_hash, share_name string, second int, outerCall commands.RequestCB) {
 	var err error
 	if object_hash, err = ipfsObjectHashCheck(object_hash); err != nil {
 		outerCall("", errors.New("object_hash len not 46"))
@@ -346,6 +346,7 @@ func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.Req
 }
 
 func IpfsAsyncQuery(object_hash, ipfs_path string, second int, outerCall commands.RequestCB) {
+	fmt.Printf("ipfs_lib IpfsAsyncQuery [%s] [%s]\n", object_hash, ipfs_path)
 	var err error
 	if object_hash, err = ipfsHashCheck(object_hash); err != nil {
 		outerCall("", errors.New("object_hash len not 46"))
@@ -353,7 +354,7 @@ func IpfsAsyncQuery(object_hash, ipfs_path string, second int, outerCall command
 	}
 
 	if !strings.HasPrefix(ipfs_path, "/") {
-		outerCall("", errors.New("ipfs_path must preffix is -"))
+		outerCall("", errors.New("ipfs_path must preffix is /"))
 		return
 	}
 	ipfs_path = ipfs_path[1:]
@@ -561,12 +562,10 @@ func IpfsAsyncConfig(key, value string, outerCall commands.RequestCB) {
 		}
 		outerCall(result, nil)
 	}
-	_, result, err := ipfsAsyncCmd(cmd, call)
+	_, _, err := ipfsAsyncCmd(cmd, call)
 	if err != nil {
 		outerCall("", err)
-		return
 	}
-	outerCall(result, nil)
 }
 
 func IpfsAsyncMessage(peer_id, peer_key, msg string, outerCall commands.RequestCB) {

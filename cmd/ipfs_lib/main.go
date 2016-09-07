@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/url"
@@ -466,6 +467,31 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 
 		// Okay!!!!! NOW we can call the command.
 		res = root.Call(req)
+
+		if req.CallBack() != nil {
+
+			if err := res.Error(); err != nil {
+				log.Errorf("root Call failed! %v", err)
+				(*req.CallBack())("", err)
+				return nil, err
+			}
+
+			out, err := res.Reader()
+			if err != nil {
+				log.Errorf("res.Reader failed! %v", err)
+				(*req.CallBack())("", err)
+				return nil, err
+			}
+
+			buf, err := ioutil.ReadAll(out)
+			if err != nil {
+				log.Errorf("iotuil.ReadAll failed! %v", err)
+				(*req.CallBack())("", err)
+				return nil, err
+			}
+
+			(*req.CallBack())(string(buf), nil)
+		}
 	}
 
 	if cmd.PostRun != nil && req.InvocContext().GetAsyncChan == nil {

@@ -32,6 +32,13 @@ func (call *CallBack) Daemon(status int, err string) {
 	if status == 0 {
 		fmt.Println("Daemon start...")
 
+		peerid, e := ipfs_mobile.IpfsConfig("Identity.PeerID", "")
+		if e != nil {
+			fmt.Println("func=[IpfsAsyncConfig],err= ", e)
+			return
+		}
+		fmt.Println("peerid=", peerid)
+
 		// conncet
 		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/172.16.154.129/tcp/4001/ipfs/QmV2Brdna6A1kwpYmPRp3PaTJmR6ynr1KN4znBC35EkSkF", 5)
 
