@@ -31,7 +31,10 @@ void Message(cb_message fn, char* peer_id, char* peer_key, char* msg, int ret) {
 }
 */
 import "C"
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 type caller struct {
 	cbdaemon      unsafe.Pointer
@@ -46,6 +49,7 @@ type caller struct {
 func (c caller) Daemon(status int, err string) {
 	ret := SUCCESS
 	if err != "" {
+		fmt.Println("[Daemon] error:", err)
 		ret = UNKOWN
 	}
 	fn := C.cb_daemon(c.cbdaemon)
@@ -54,9 +58,15 @@ func (c caller) Daemon(status int, err string) {
 
 func (c caller) Add(uid, hash string, pos int, err string) {
 	ret := SUCCESS
+
 	if err != "" {
 		ret = UNKOWN
+		if err == "timeout" {
+			ret = TIMEOUT
+		}
+		fmt.Println("[Add] error:", err)
 	}
+
 	fn := C.cb_add(c.cbadd)
 	C.Add(fn, C.CString(uid), C.CString(hash), C.int(pos), C.int(ret))
 }
@@ -65,6 +75,10 @@ func (c caller) Get(uid string, pos int, err string) {
 	ret := SUCCESS
 	if err != "" {
 		ret = UNKOWN
+		if err == "timeout" {
+			ret = TIMEOUT
+		}
+		fmt.Println("[Get] error:", err)
 	}
 	fn := C.cb_get(c.cbget)
 	C.Get(fn, C.CString(uid), C.int(pos), C.int(ret))
@@ -73,6 +87,7 @@ func (c caller) Get(uid string, pos int, err string) {
 func (c caller) Query(root_hash, ipfs_path, result string, err string) {
 	ret := SUCCESS
 	if err != "" {
+		fmt.Println("[Query] error:", err)
 		ret = UNKOWN
 	}
 	fn := C.cb_query(c.cbquery)
@@ -82,16 +97,17 @@ func (c caller) Query(root_hash, ipfs_path, result string, err string) {
 func (c caller) Publish(publish_hash string, err string) {
 	ret := SUCCESS
 	if err != "" {
+		fmt.Println("[Publish] error:", err)
 		ret = UNKOWN
 	}
 	fn := C.cb_publish(c.cbpublish)
 	C.Publish(fn, C.CString(publish_hash), C.int(ret))
-
 }
 
 func (c caller) ConnectPeer(peer_addr string, err string) {
 	ret := SUCCESS
 	if err != "" {
+		fmt.Println("[ConnectPeer] error:", err)
 		ret = UNKOWN
 	}
 	fn := C.cb_connectpeer(c.cbconnectpeer)
@@ -101,6 +117,7 @@ func (c caller) ConnectPeer(peer_addr string, err string) {
 func (c caller) Message(peer_id, peer_key, msg string, err string) {
 	ret := SUCCESS
 	if err != "" {
+		fmt.Println("[Message] error:", err)
 		ret = UNKOWN
 	}
 	fn := C.cb_message(c.cbmessage)

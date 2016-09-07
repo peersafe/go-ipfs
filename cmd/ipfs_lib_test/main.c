@@ -129,40 +129,40 @@ void move() {
 	}
 }
 
-void shard() {
-	printf("shard........\n");
+void share() {
+	printf("share........\n");
 	GoString object_hash;
 	object_hash.p = "QmSub8nJ5RUraQ2fHgTdSgqn1rDWDSeJ3mQQvkD5Pi3Chj";
 	object_hash.n = strlen(object_hash.p);
 
-	GoString shard_name;
-	shard_name.p = "/sharedir";
-	shard_name.n = strlen(shard_name.p);
+	GoString share_name;
+	share_name.p = "/sharedir";
+	share_name.n = strlen(share_name.p);
 
 	char res[255] = {0};
 
-	GoInt ret = ipfs_shard(object_hash, shard_name, 3, res);
+	GoInt ret = ipfs_share(object_hash, share_name, 3, res);
 	printf("ret[%d][%s]\n", ret, res);
 
 	if (strcmp(res, "QmcJJoqoouBDybRxfGzhprx5v8ZXohL41ckCTY6MuzgUiN") == 0) {
-		printf("ipfs_shard success\n");
+		printf("ipfs_share success\n");
 	} else {
-		printf("ipfs_shard fail\n");
+		printf("ipfs_share fail\n");
 	}
 }
 
 void get() {
 	printf("get........\n");
 
-	GoString shard_hash;
-	shard_hash.p = "addr://QmcJJoqoouBDybRxfGzhprx5v8ZXohL41ckCTY6MuzgUiN";
-	shard_hash.n = strlen(shard_hash.p);
+	GoString share_hash;
+	share_hash.p = "addr://QmcJJoqoouBDybRxfGzhprx5v8ZXohL41ckCTY6MuzgUiN";
+	share_hash.n = strlen(share_hash.p);
 
 	GoString os_path;
 	os_path.p = "./test_get/";
 	os_path.n = strlen(os_path.p);
 
-	GoInt ret = ipfs_get(shard_hash, os_path, 3);
+	GoInt ret = ipfs_get(share_hash, os_path, 3);
 	printf("ret[%d]\n", ret);
 
 	if (ret < 0 ) {
@@ -204,11 +204,11 @@ void merge() {
 	ipfs_path.p = "/dir_helloworld/ttttttt";
 	ipfs_path.n = strlen(ipfs_path.p);
 
-	GoString shard_hash;
-	shard_hash.p = "QmcJJoqoouBDybRxfGzhprx5v8ZXohL41ckCTY6MuzgUiN";
-	shard_hash.n = strlen(shard_hash.p);
+	GoString share_hash;
+	share_hash.p = "QmcJJoqoouBDybRxfGzhprx5v8ZXohL41ckCTY6MuzgUiN";
+	share_hash.n = strlen(share_hash.p);
 
-	GoInt ret = ipfs_merge(root_hash, ipfs_path, shard_hash, 3, res);
+	GoInt ret = ipfs_merge(root_hash, ipfs_path, share_hash, 3, res);
 	printf("ret[%d][%s]\n", ret, res);
 
 	if (strcmp(res, "QmRnJKjqNfVN25SrXgbA8KWv4szc5xccWFcx9bwSXvAoT8") == 0) {
@@ -359,7 +359,7 @@ void operate(){
 	add();
 	delete();
 	move();
-	shard();
+	share();
 	get();
 	query();
 	merge();

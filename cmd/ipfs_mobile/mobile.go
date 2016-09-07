@@ -84,7 +84,7 @@ type bakpos struct {
 
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
-	bakPos := &bakpos{100, false}
+	bakPos := &bakpos{0, false}
 
 	heartBeat := make(chan struct{})
 	go func() {
@@ -99,7 +99,6 @@ func IpfsAsyncAdd(os_path string, second int) string {
 				return
 			default:
 				if bakPos.done {
-					ipfsDone(uid)
 					return
 				}
 			}
@@ -197,7 +196,7 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 		new_hash, retErr = result, nil
 		sync <- struct{}{}
 	}
-	ipfs_lib.IpfsAsyncShard(object_hash, share_name, sencond, outerCall)
+	ipfs_lib.IpfsAsyncShare(object_hash, share_name, sencond, outerCall)
 	<-sync
 
 	return
@@ -205,7 +204,7 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 
 func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
-	bakPos := &bakpos{100, false}
+	bakPos := &bakpos{0, false}
 	heartBeat := make(chan struct{})
 	go func() {
 		timer := time.NewTimer(time.Duration(second) * time.Second)
@@ -219,7 +218,6 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 				return
 			default:
 				if bakPos.done {
-					ipfsDone(uid)
 					return
 				}
 			}
@@ -360,10 +358,11 @@ func IpfsAsyncConnectpeer(peer_addr string, second int) {
 }
 
 func IpfsConfig(key, value string) (retValue string, retErr error) {
-	sync := make(chan struct{})
+	sync := make(chan struct{}, 1)
 	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
+
 			retValue, retErr = "", err
 			sync <- struct{}{}
 			return
@@ -374,6 +373,7 @@ func IpfsConfig(key, value string) (retValue string, retErr error) {
 		retValue, retErr = result, nil
 		sync <- struct{}{}
 	}
+
 	ipfs_lib.IpfsAsyncConfig(key, value, outerCall)
 	<-sync
 	return

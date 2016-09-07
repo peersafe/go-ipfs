@@ -83,9 +83,9 @@ func ipfs_move(root_hash, ipfs_path_src, ipfs_path_des string, second int, out_r
 	return ret
 }
 
-//export ipfs_shard
-func ipfs_shard(object_hash, shard_name string, second int, out_res *C.char) int {
-	ret, str := ipfs_lib.IpfsShard(object_hash, shard_name, second)
+//export ipfs_share
+func ipfs_share(object_hash, share_name string, second int, out_res *C.char) int {
+	ret, str := ipfs_lib.IpfsShare(object_hash, share_name, second)
 	if str != "" {
 		goStringToChar(str, out_res)
 	}
@@ -93,8 +93,8 @@ func ipfs_shard(object_hash, shard_name string, second int, out_res *C.char) int
 }
 
 //export ipfs_get
-func ipfs_get(shard_hash, os_path string, second int) int {
-	return ipfs_lib.IpfsGet(shard_hash, os_path, second)
+func ipfs_get(share_hash, os_path string, second int) int {
+	return ipfs_lib.IpfsGet(share_hash, os_path, second)
 }
 
 //export ipfs_query
@@ -107,8 +107,8 @@ func ipfs_query(object_hash, ipfs_path string, second int, out_res *C.char) int 
 }
 
 //export ipfs_merge
-func ipfs_merge(root_hash, ipfs_path, shard_hash string, second int, out_res *C.char) int {
-	ret, str := ipfs_lib.IpfsMerge(root_hash, ipfs_path, shard_hash, second)
+func ipfs_merge(root_hash, ipfs_path, share_hash string, second int, out_res *C.char) int {
+	ret, str := ipfs_lib.IpfsMerge(root_hash, ipfs_path, share_hash, second)
 	if str != "" {
 		goStringToChar(str, out_res)
 	}
