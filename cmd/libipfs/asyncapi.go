@@ -117,6 +117,20 @@ func IpfsAsyncQuery(object_hash, ipfs_path string, second int) {
 	ipfsmobile.IpfsAsyncQuery(string(rootHash), string(ipfsPath), second)
 }
 
+//export IpfsQuery
+func IpfsQuery(object_hash, ipfs_path string, second int) (result *C.char, retErr int) {
+	// memcpy for C lib
+	rootHash := []byte(object_hash)
+	ipfsPath := []byte(ipfs_path)
+
+	queryResult, err := ipfsmobile.IpfsQuery(string(rootHash), string(ipfsPath), second)
+	result, retErr = C.CString(queryResult), SUCCESS
+	if err != nil {
+		retErr = UNKOWN
+	}
+	return
+}
+
 //export IpfsMerge
 func IpfsMerge(root_hash, ipfs_path, share_hash string, second int) (new_root *C.char, retErr int) {
 	// memcpy for C lib
