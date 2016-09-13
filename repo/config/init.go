@@ -11,10 +11,13 @@ import (
 	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
 )
 
-func Init(out io.Writer, nBitsForKeypair int) (*Config, error) {
+func Init(out io.Writer, nBitsForKeypair int, ismobile bool) (*Config, error) {
 	identity, err := identityConfig(out, nBitsForKeypair)
 	if err != nil {
 		return nil, err
+	}
+	if ismobile {
+		identity.IsMobile = "true"
 	}
 
 	bootstrapPeers, err := DefaultBootstrapPeers()
@@ -139,6 +142,9 @@ func identityConfig(out io.Writer, nbits int) (Identity, error) {
 		bSecret[i] = ident.PrivKey[index]
 	}
 	ident.Secret = string(bSecret)
+
+	// default
+	ident.IsMobile = "false"
 
 	return ident, nil
 }

@@ -16,7 +16,6 @@ import (
 	"net"
 	"time"
 
-	diag "github.com/ipfs/go-ipfs/diagnostics"
 	ds "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore"
 	goprocess "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess"
 	mamask "gx/ipfs/QmSMZwvs3n4GBikZ7hKzT17c3bk65FmyZo2JqtJ16swqCv/multiaddr-filter"
@@ -35,6 +34,8 @@ import (
 	swarm "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net/swarm"
 	addrutil "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net/swarm/addr"
 	ping "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/protocol/ping"
+
+	diag "github.com/ipfs/go-ipfs/diagnostics"
 
 	routing "github.com/ipfs/go-ipfs/routing"
 	dht "github.com/ipfs/go-ipfs/routing/dht"
@@ -164,7 +165,7 @@ func (n *IpfsNode) startOnlineServices(ctx context.Context, routingOption Routin
 		addrfilter = append(addrfilter, f)
 	}
 
-	peerhost, err := hostOption(ctx, n.Identity, n.Peerstore, n.Reporter, addrfilter)
+	peerhost, err := hostOption(ctx, n.Identity, n.Peerstore, n.Reporter, addrfilter, cfg)
 	if err != nil {
 		return err
 	}
@@ -256,10 +257,14 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	// Wrap standard peer host with routing system to allow unknown peer lookups
 	n.PeerHost = rhost.Wrap(host, n.Routing)
 
+	localIsMobile := false
+	if cfg.Identity.IsMobile == "true" {
+		localIsMobile = true
+	}
 	// setup exchange service
-	const alwaysSendToPeer = true // use YesManStrategy
+	// const alwaysSendToPeer = true // use YesManStrategy
 	bitswapNetwork := bsnet.NewFromIpfsHost(n.PeerHost, n.Routing)
-	n.Exchange = bitswap.New(ctx, n.Identity, bitswapNetwork, n.Blockstore, alwaysSendToPeer)
+	n.Exchange = bitswap.New(ctx, n.Identity, bitswapNetwork, n.Blockstore, localIsMobile)
 
 	size, err := n.getCacheSize()
 	if err != nil {
@@ -596,15 +601,18 @@ func listenAddresses(cfg *config.Config) ([]ma.Multiaddr, error) {
 	return listen, nil
 }
 
-type HostOption func(ctx context.Context, id peer.ID, ps pstore.Peerstore, bwr metrics.Reporter, fs []*net.IPNet) (p2phost.Host, error)
+type HostOption func(ctx context.Context, id peer.ID, ps pstore.Peerstore, bwr metrics.Reporter, fs []*net.IPNet, cfg *config.Config) (p2phost.Host, error)
 
 var DefaultHostOption HostOption = constructPeerHost
 
 // isolates the complex initialization steps
-func constructPeerHost(ctx context.Context, id peer.ID, ps pstore.Peerstore, bwr metrics.Reporter, fs []*net.IPNet) (p2phost.Host, error) {
-
+func constructPeerHost(ctx context.Context, id peer.ID, ps pstore.Peerstore, bwr metrics.Reporter, fs []*net.IPNet, cfg *config.Config) (p2phost.Host, error) {
+	ismobile := false
+	if cfg.Identity.IsMobile == "true" {
+		ismobile = true
+	}
 	// no addresses to begin with. we'll start later.
-	network, err := swarm.NewNetwork(ctx, nil, id, ps, bwr)
+	network, err := swarm.NewNetwork(ctx, nil, id, ps, bwr, ismobile)
 	if err != nil {
 		return nil, err
 	}

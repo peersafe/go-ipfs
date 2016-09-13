@@ -15,6 +15,7 @@ import (
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 	host "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/host"
 	inet "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net"
+	conn "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net/conn"
 )
 
 var log = logging.Logger("bitswap_network")
@@ -193,6 +194,15 @@ func (bsnet *impl) handleNewStream(s inet.Stream) {
 		log.Debugf("bitswap net handleNewStream from %s", s.Conn().RemotePeer())
 		bsnet.receiver.ReceiveMessage(ctx, p, received)
 	}
+}
+
+func (bsnet *impl) PeerIsMobile(p peer.ID) bool {
+	ismobile, _ := conn.ConnPeers[p]
+	return ismobile
+}
+
+func (bsnet *impl) RemovePeer(p peer.ID) {
+	delete(conn.ConnPeers, p)
 }
 
 type netNotifiee impl

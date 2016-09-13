@@ -7,9 +7,10 @@ import (
 
 // Identity tracks the configuration of the local node's identity.
 type Identity struct {
-	PeerID  string
-	PrivKey string `json:",omitempty"`
-	Secret  string
+	PeerID   string
+	PrivKey  string `json:",omitempty"`
+	Secret   string
+	IsMobile string
 }
 
 // DecodePrivateKey is a helper to decode the users PrivateKey
