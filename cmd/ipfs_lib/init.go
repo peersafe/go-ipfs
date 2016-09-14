@@ -130,7 +130,7 @@ func doInit(out io.Writer, repoRoot string, empty bool, nBitsForKeypair int, con
 
 	if conf == nil {
 		var err error
-		conf, err = config.Init(out, nBitsForKeypair)
+		conf, err = config.Init(out, nBitsForKeypair, true)
 		if err != nil {
 			return err
 		}

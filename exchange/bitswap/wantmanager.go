@@ -4,13 +4,14 @@ import (
 	"sync"
 	"time"
 
+	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
+	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	engine "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
-	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
-	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 )
 
 type WantManager struct {
@@ -27,9 +28,11 @@ type WantManager struct {
 	network bsnet.BitSwapNetwork
 	ctx     context.Context
 	cancel  func()
+
+	ismobile bool
 }
 
-func NewWantManager(ctx context.Context, network bsnet.BitSwapNetwork) *WantManager {
+func NewWantManager(ctx context.Context, network bsnet.BitSwapNetwork, isMobile bool) *WantManager {
 	ctx, cancel := context.WithCancel(ctx)
 	return &WantManager{
 		incoming:   make(chan []*bsmsg.Entry, 10),
@@ -41,6 +44,7 @@ func NewWantManager(ctx context.Context, network bsnet.BitSwapNetwork) *WantMana
 		network:    network,
 		ctx:        ctx,
 		cancel:     cancel,
+		ismobile:   isMobile,
 	}
 }
 
@@ -55,7 +59,8 @@ type cancellation struct {
 }
 
 type msgQueue struct {
-	p peer.ID
+	p        peer.ID
+	ismobile bool
 
 	outlk   sync.Mutex
 	out     bsmsg.BitSwapMessage
@@ -123,6 +128,49 @@ func (pm *WantManager) startPeerHandler(p peer.ID) *msgQueue {
 		return nil
 	}
 
+	if pm.ismobile {
+		var oldPeer peer.ID
+		if len(pm.peers) == 1 {
+			// Compare p And exist peer, select the fast one
+
+			var time1, time2 time.Duration
+			var wg sync.WaitGroup
+
+			now := time.Now()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				pm.network.ConnectTo(context.TODO(), p)
+				time1 = time.Now().Sub(now)
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for pe := range pm.peers {
+					oldPeer = pe
+					pm.network.ConnectTo(context.TODO(), pe)
+				}
+				time2 = time.Now().Sub(now)
+			}()
+			wg.Wait()
+
+			log.Debugf("New peer connect cost %v, old peer connect cost %v \n", time1.Seconds(), time2.Seconds())
+			if time1 > time2 {
+				log.Debugf("New peer connect cost more time!\n")
+				return nil
+			}
+
+			// delete old peer
+			if mq != nil {
+				mq.done <- struct{}{}
+				close(mq.done)
+			}
+			delete(pm.peers, oldPeer)
+		}
+	}
+
 	mq = pm.newMsgQueue(p)
 
 	// new peer, we will want to give them our full wantlist
@@ -133,24 +181,30 @@ func (pm *WantManager) startPeerHandler(p peer.ID) *msgQueue {
 	mq.out = fullwantlist
 	mq.work <- struct{}{}
 
+	// get remote peer mobile status
+	mq.ismobile = pm.network.PeerIsMobile(p)
+
 	pm.peers[p] = mq
 	go mq.runQueue(pm.ctx)
 	return mq
 }
 
 func (pm *WantManager) stopPeerHandler(p peer.ID) {
-	pq, ok := pm.peers[p]
+	mq, ok := pm.peers[p]
 	if !ok {
 		// TODO: log error?
 		return
 	}
 
-	pq.refcnt--
-	if pq.refcnt > 0 {
+	mq.refcnt--
+	if mq.refcnt > 0 {
 		return
 	}
 
-	close(pq.done)
+	// remove peer in map PeerConns
+	pm.network.RemovePeer(p)
+
+	close(mq.done)
 	delete(pm.peers, p)
 }
 
@@ -250,8 +304,11 @@ func (pm *WantManager) Run() {
 			}
 
 			// broadcast those wantlist changes
-			for _, p := range pm.peers {
-				p.addMessage(entries)
+			for _, mq := range pm.peers {
+				if !mq.ismobile {
+					mq.addMessage(entries)
+				}
+				log.Infof("[incoming] peer id %v is mobile %v \n", mq.p, mq.ismobile)
 			}
 
 		case <-tock.C:
@@ -269,11 +326,15 @@ func (pm *WantManager) Run() {
 				es = append(es, &bsmsg.Entry{Entry: e})
 			}
 			for _, p := range pm.peers {
-				p.outlk.Lock()
-				p.out = bsmsg.New(true)
-				p.outlk.Unlock()
+				// if sent to peer is mobile,ignore it
+				if !p.ismobile {
+					p.outlk.Lock()
+					p.out = bsmsg.New(true)
+					p.outlk.Unlock()
 
-				p.addMessage(es)
+					p.addMessage(es)
+				}
+				log.Infof("[Tick.C] peer id %v is mobile %v \n", p.p, p.ismobile)
 			}
 		case p := <-pm.connect:
 			pm.startPeerHandler(p)

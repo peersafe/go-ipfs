@@ -65,7 +65,7 @@ var rebroadcastDelay = delay.Fixed(time.Second * 10)
 // delegate.
 // Runs until context is cancelled.
 func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
-	bstore blockstore.Blockstore, nice bool) exchange.Interface {
+	bstore blockstore.Blockstore, ismobile bool) exchange.Interface {
 
 	// important to use provided parent context (since it may include important
 	// loggable data). It's probably not a good idea to allow bitswap to be
@@ -92,7 +92,7 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 		process:       px,
 		newBlocks:     make(chan blocks.Block, HasBlockBufferSize),
 		provideKeys:   make(chan key.Key, provideKeysBufferSize),
-		wm:            NewWantManager(ctx, network),
+		wm:            NewWantManager(ctx, network, ismobile),
 	}
 	go bs.wm.Run()
 	network.SetDelegate(bs)

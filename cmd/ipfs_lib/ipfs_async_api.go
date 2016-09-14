@@ -556,6 +556,7 @@ func IpfsAsyncConfig(key, value string, outerCall commands.RequestCB) {
 	}
 
 	call := func(result string, err error) {
+		fmt.Println("IpfsAsyncConfig result = ", result)
 		if err != nil {
 			outerCall("", err)
 			return
