@@ -1,7 +1,6 @@
 package ipfsmobile
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -249,7 +248,6 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			return
 		}
 
-		fmt.Println(">>>>>>>>>>>>>>>>>IpfsAsyncGet,result=", result)
 		if !bakPos.done {
 			globalCallBack.Get(uid, 100, "")
 			bakPos.done = true
@@ -383,12 +381,8 @@ func IpfsConfig(key, value string) (retValue string, retErr error) {
 	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
-
 			retValue, retErr = "", err
 			sync <- struct{}{}
-			return
-		}
-		if result == "" {
 			return
 		}
 		retValue, retErr = result, nil

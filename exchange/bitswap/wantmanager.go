@@ -1,7 +1,6 @@
 package bitswap
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -309,7 +308,7 @@ func (pm *WantManager) Run() {
 				if !mq.ismobile {
 					mq.addMessage(entries)
 				}
-				fmt.Println("[incoming] peer id %v is mobile %v", mq.p, mq.ismobile)
+				log.Infof("[incoming] peer id %v is mobile %v \n", mq.p, mq.ismobile)
 			}
 
 		case <-tock.C:
@@ -335,7 +334,7 @@ func (pm *WantManager) Run() {
 
 					p.addMessage(es)
 				}
-				fmt.Println("[Tick.C] peer id %v is mobile %v", p.p, p.ismobile)
+				log.Infof("[Tick.C] peer id %v is mobile %v \n", p.p, p.ismobile)
 			}
 		case p := <-pm.connect:
 			pm.startPeerHandler(p)
