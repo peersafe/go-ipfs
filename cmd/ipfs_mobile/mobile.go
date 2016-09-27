@@ -435,8 +435,22 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	return
 }
 
-func IpfsAsyncMessage(peer_id, peer_key, msg string) {
-	ipfs_lib.IpfsAsyncMessage(peer_id, peer_key, msg, func(result string, err error) {})
+func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int) {
+	sync := make(chan struct{})
+	defer close(sync)
+	outerCall := func(result string, err error) {
+		if err != nil {
+			sync <- struct{}{}
+			ret = ipfs_lib.UNKOWN
+			return
+		}
+		sync <- struct{}{}
+		ret = ipfs_lib.SUCCESS
+		return
+	}
+	ipfs_lib.IpfsAsyncMessage(peer_id, peer_key, msg, outerCall)
+	<-sync
+	return
 }
 
 func IpfsCancel(uuid string) {
@@ -446,6 +460,10 @@ func IpfsCancel(uuid string) {
 		close(cancel)
 		delete(loaderMap, uuid)
 	}
+}
+
+func IpfsUuid() string {
+	return geneUuid()
 }
 
 func ipfsDone(uuid string) {

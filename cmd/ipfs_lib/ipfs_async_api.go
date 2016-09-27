@@ -302,46 +302,36 @@ func IpfsAsyncGet(share_hash, os_path string, second int, outerCall commands.Req
 		return
 	}
 
+	call := func(result string, err error) {
+		if err != nil {
+			outerCall("", err)
+			return
+		}
+		result = stringTrim(result)
+		// do progress callback
+		if result != "" && !strings.Contains(result, "Over") {
+			outerCall(result, nil)
+			return
+		}
+		outerCall(result, nil)
+	}
+
+	var cmd string
 	if len(os_path) != 0 {
 		os_path, err = filepath.Abs(path.Clean(os_path))
 		if err != nil {
 			outerCall("", err)
 			return
 		}
-
-		call := func(result string, err error) {
-			if err != nil {
-				outerCall("", err)
-				return
-			}
-			result = stringTrim(result)
-			// do progress callback
-			if result != "" && !strings.Contains(result, "Over") {
-				outerCall(result, nil)
-				return
-			}
-			outerCall(result, nil)
-		}
-		cmd := strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
-		_, _, err = ipfsAsyncCmdWithCancel(cmd, second, call, cancel)
-		if err != nil {
-			outerCall("", err)
-			return
-		}
+		cmd = strings.Join([]string{"ipfs", "get", share_hash, "-o", os_path}, cmdSep)
 	} else { // remtote cmd pin add
-		call := func(result string, err error) {
-			if err != nil {
-				outerCall("", err)
-				return
-			}
-			result = stringTrim(result)
-			outerCall(result, nil)
-		}
-		cmd := strings.Join([]string{"ipfs", "pin", "add", share_hash}, cmdSep)
-		_, _, err = ipfsAsyncCmdWithCancel(cmd, second, call, cancel)
-		if err != nil {
-			outerCall("", err)
-		}
+		cmd = strings.Join([]string{"ipfs", "get", share_hash, "-o", "/dev/null"}, cmdSep)
+	}
+
+	_, _, err = ipfsAsyncCmdWithCancel(cmd, second, call, cancel)
+	if err != nil {
+		outerCall("", err)
+		return
 	}
 }
 
