@@ -101,10 +101,13 @@ func (p *RemotemsgService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
 }
 
 type remoteMsg struct {
+	MsgId          string `json:"msgid"`
 	Type           string `json:"type"`
 	Hash           string `json:"hash"`
 	MsgFromPeerId  string `json:"msg_from_peerid"`
 	MsgFromPeerKey string `json:"msg_from_peerkey"`
+	// if type="process",pos enable
+	Pos int `json:"pos"`
 	// for relaypin
 	PeerId  string `json:"peer_id"`
 	PeerKey string `json:"peer_key"`
@@ -120,6 +123,11 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 		return err
 	}
 
+	// store form peerID and privateKey
+	fromPeerId, fromPeerKey := msg.MsgFromPeerId, msg.MsgFromPeerKey
+	// set local host peerID and privateKey
+	msg.MsgFromPeerId, msg.MsgFromPeerKey = ps.Host.ID().Pretty(), ps.Secret
+
 	successServerMsg := func(types string) {
 		returnMsg := &remoteMsg{
 			Type: types,
@@ -130,12 +138,12 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 			log.Errorf("remotemsg error:%v", err)
 			return
 		}
-		pid, err := peer.IDB58Decode(msg.MsgFromPeerId)
+		pid, err := peer.IDB58Decode(fromPeerId)
 		if err != nil {
 			log.Errorf("remotemsg error:%v", err)
 			return
 		}
-		if _, err := ps.RemoteMsg(context.TODO(), pid, msg.MsgFromPeerKey, string(data)); err != nil {
+		if _, err := ps.RemoteMsg(context.TODO(), pid, fromPeerKey, string(data)); err != nil {
 			log.Errorf("remotemsg error:%v", err)
 			return
 		}
@@ -210,7 +218,12 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 			fmt.Println("Relaypin command exec successfully!")
 		}
 	} else {
-		callback.GlobalCallBack.Message(msg.MsgFromPeerId, msg.MsgFromPeerKey, string(content), "")
+		data, err := json.Marshal(msg)
+		if err != nil {
+			log.Errorf("remotemsg error:%v", err)
+			return err
+		}
+		callback.GlobalCallBack.Message(fromPeerId, fromPeerKey, string(data), "")
 	}
 	return nil
 }

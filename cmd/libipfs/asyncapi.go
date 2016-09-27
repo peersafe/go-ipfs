@@ -233,13 +233,13 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult *
 }
 
 //export IpfsMessage
-func IpfsMessage(peer_id, peer_key, msg string) {
+func IpfsMessage(peer_id, peer_key, msg string) int {
 	// memcpy for C lib
 	peerId := []byte(peer_id)
 	peerKey := []byte(peer_key)
 	msgs := []byte(msg)
 
-	ipfsmobile.IpfsAsyncMessage(string(peerId), string(peerKey), string(msgs))
+	return ipfsmobile.IpfsAsyncMessage(string(peerId), string(peerKey), string(msgs))
 }
 
 //export IpfsCancel
