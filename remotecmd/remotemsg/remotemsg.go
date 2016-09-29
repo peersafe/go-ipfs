@@ -101,13 +101,14 @@ func (p *RemotemsgService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
 }
 
 type remoteMsg struct {
-	MsgId          string `json:"msgid"`
+	MsgId          string `json:"uid"`
 	Type           string `json:"type"`
 	Hash           string `json:"hash"`
 	MsgFromPeerId  string `json:"msg_from_peerid"`
 	MsgFromPeerKey string `json:"msg_from_peerkey"`
 	// if type="process",pos enable
 	Pos int `json:"pos"`
+	Ret int `json:"ret"`
 	// for relaypin
 	PeerId  string `json:"peer_id"`
 	PeerKey string `json:"peer_key"`
@@ -125,8 +126,6 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 
 	// store form peerID and privateKey
 	fromPeerId, fromPeerKey := msg.MsgFromPeerId, msg.MsgFromPeerKey
-	// set local host peerID and privateKey
-	msg.MsgFromPeerId, msg.MsgFromPeerKey = ps.Host.ID().Pretty(), ps.Secret
 
 	successServerMsg := func(types string) {
 		returnMsg := &remoteMsg{
@@ -218,12 +217,7 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 			fmt.Println("Relaypin command exec successfully!")
 		}
 	} else {
-		data, err := json.Marshal(msg)
-		if err != nil {
-			log.Errorf("remotemsg error:%v", err)
-			return err
-		}
-		callback.GlobalCallBack.Message(fromPeerId, fromPeerKey, string(data), "")
+		callback.GlobalCallBack.Message(string(content), "")
 	}
 	return nil
 }

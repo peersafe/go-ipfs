@@ -202,36 +202,6 @@ func IpfsConfig(key, value string) (retValue *C.char, retErr int) {
 	return
 }
 
-//export IpfsRemotepin
-func IpfsRemotepin(peer_id, peer_key, object_hash string, second int) (retErr int) {
-	// memcpy for C lib
-	peerId := []byte(peer_id)
-	peerKey := []byte(peer_key)
-	objectHash := []byte(object_hash)
-
-	err := ipfsmobile.IpfsRemotepin(string(peerId), string(peerKey), string(objectHash), second)
-	retErr = SUCCESS
-	if err != nil {
-		retErr = UNKOWN
-	}
-	return
-}
-
-//export IpfsRemotels
-func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult *C.char, retErr int) {
-	// memcpy for C lib
-	peerId := []byte(peer_id)
-	peerKey := []byte(peer_key)
-	objectHash := []byte(object_hash)
-
-	str, err := ipfsmobile.IpfsRemotels(string(peerId), string(peerKey), string(objectHash), second)
-	lsResult, retErr = C.CString(str), SUCCESS
-	if err != nil {
-		retErr = UNKOWN
-	}
-	return
-}
-
 //export IpfsMessage
 func IpfsMessage(peer_id, peer_key, msg string) int {
 	// memcpy for C lib
@@ -248,4 +218,9 @@ func IpfsCancel(uuid string) {
 	uid := []byte(uuid)
 
 	ipfsmobile.IpfsCancel(string(uid))
+}
+
+//export IpfsUuid
+func IpfsUuid() string {
+	return ipfsmobile.IpfsUuid()
 }
