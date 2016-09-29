@@ -127,50 +127,50 @@ func (pm *WantManager) startPeerHandler(p peer.ID) *msgQueue {
 		mq.refcnt++
 		return nil
 	}
+	/*
+		if pm.ismobile {
+			var oldPeer peer.ID
+			if len(pm.peers) == 1 {
+				// Compare p And exist peer, select the fast one
 
-	if pm.ismobile {
-		var oldPeer peer.ID
-		if len(pm.peers) == 1 {
-			// Compare p And exist peer, select the fast one
+				var time1, time2 time.Duration
+				var wg sync.WaitGroup
 
-			var time1, time2 time.Duration
-			var wg sync.WaitGroup
+				now := time.Now()
 
-			now := time.Now()
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					pm.network.ConnectTo(context.TODO(), p)
+					time1 = time.Now().Sub(now)
+				}()
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				pm.network.ConnectTo(context.TODO(), p)
-				time1 = time.Now().Sub(now)
-			}()
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for pe := range pm.peers {
+						oldPeer = pe
+						pm.network.ConnectTo(context.TODO(), pe)
+					}
+					time2 = time.Now().Sub(now)
+				}()
+				wg.Wait()
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for pe := range pm.peers {
-					oldPeer = pe
-					pm.network.ConnectTo(context.TODO(), pe)
+				log.Debugf("New peer connect cost %v, old peer connect cost %v \n", time1.Seconds(), time2.Seconds())
+				if time1 > time2 {
+					log.Debugf("New peer connect cost more time!\n")
+					return nil
 				}
-				time2 = time.Now().Sub(now)
-			}()
-			wg.Wait()
 
-			log.Debugf("New peer connect cost %v, old peer connect cost %v \n", time1.Seconds(), time2.Seconds())
-			if time1 > time2 {
-				log.Debugf("New peer connect cost more time!\n")
-				return nil
+				// delete old peer
+				if mq != nil {
+					mq.done <- struct{}{}
+					close(mq.done)
+				}
+				delete(pm.peers, oldPeer)
 			}
-
-			// delete old peer
-			if mq != nil {
-				mq.done <- struct{}{}
-				close(mq.done)
-			}
-			delete(pm.peers, oldPeer)
 		}
-	}
-
+	*/
 	mq = pm.newMsgQueue(p)
 
 	// new peer, we will want to give them our full wantlist
@@ -288,8 +288,17 @@ func (pm *WantManager) Disconnected(p peer.ID) {
 
 // TODO: use goprocess here once i trust it
 func (pm *WantManager) Run() {
-	tock := time.NewTicker(rebroadcastDelay.Get())
+	var tock *time.Ticker
+	if pm.ismobile {
+		tock = time.NewTicker(rebroadcastDelay.Get() * 2)
+	} else {
+		tock = time.NewTicker(rebroadcastDelay.Get())
+	}
 	defer tock.Stop()
+
+	// Reduce the number of notifications to mobile nodes
+	count := 1
+
 	for {
 		select {
 		case entries := <-pm.incoming:
@@ -305,9 +314,7 @@ func (pm *WantManager) Run() {
 
 			// broadcast those wantlist changes
 			for _, mq := range pm.peers {
-				if !mq.ismobile {
-					mq.addMessage(entries)
-				}
+				mq.addMessage(entries)
 				log.Infof("[incoming] peer id %v is mobile %v \n", mq.p, mq.ismobile)
 			}
 
@@ -327,7 +334,13 @@ func (pm *WantManager) Run() {
 			}
 			for _, p := range pm.peers {
 				// if sent to peer is mobile,ignore it
-				if !p.ismobile {
+				if p.ismobile && count%3 == 1 {
+					p.outlk.Lock()
+					p.out = bsmsg.New(true)
+					p.outlk.Unlock()
+
+					p.addMessage(es)
+				} else {
 					p.outlk.Lock()
 					p.out = bsmsg.New(true)
 					p.outlk.Unlock()
@@ -336,6 +349,8 @@ func (pm *WantManager) Run() {
 				}
 				log.Infof("[Tick.C] peer id %v is mobile %v \n", p.p, p.ismobile)
 			}
+
+			count++
 		case p := <-pm.connect:
 			pm.startPeerHandler(p)
 		case p := <-pm.disconnect:

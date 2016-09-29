@@ -25,9 +25,9 @@ typedef void (*cb_connectpeer)(char *, int);
 void ConnectPeer(cb_connectpeer fn, char* peer_addr, int ret) {
 	fn(peer_addr, ret);
 }
-typedef void (*cb_message)(char *, char *, char *, int);
-void Message(cb_message fn, char* peer_id, char* peer_key, char* msg, int ret) {
-	fn(peer_id, peer_key, msg, ret);
+typedef void (*cb_message)(char *, int);
+void Message(cb_message fn, char* msg, int ret) {
+	fn(msg, ret);
 }
 */
 import "C"
@@ -114,12 +114,12 @@ func (c caller) ConnectPeer(peer_addr string, err string) {
 	C.ConnectPeer(fn, C.CString(peer_addr), C.int(ret))
 }
 
-func (c caller) Message(peer_id, peer_key, msg string, err string) {
+func (c caller) Message(msg string, err string) {
 	ret := SUCCESS
 	if err != "" {
 		fmt.Println("[Message] error:", err)
 		ret = UNKOWN
 	}
 	fn := C.cb_message(c.cbmessage)
-	C.Message(fn, C.CString(peer_id), C.CString(peer_key), C.CString(msg), C.int(ret))
+	C.Message(fn, C.CString(msg), C.int(ret))
 }
