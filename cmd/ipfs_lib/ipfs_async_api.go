@@ -542,7 +542,7 @@ func IpfsAsyncConfig(key, value string, outerCall commands.RequestCB) {
 	} else if len(key) != 0 && len(value) == 0 {
 		cmd = strings.Join([]string{"ipfs", "config", key}, cmdSep)
 	} else {
-		cmd = strings.Join([]string{"ipfs", "config", key, value}, cmdSep)
+		cmd = strings.Join([]string{"ipfs", "config", key, value, "--json"}, cmdSep)
 	}
 
 	call := func(result string, err error) {
