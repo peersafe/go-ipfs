@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -47,13 +48,18 @@ func NewRemotemsgService(h host.Host, key string) *RemotemsgService {
 
 func (p *RemotemsgService) RemotemsgHandler(s inet.Stream) {
 	for {
-		slen := make([]byte, 1)
+		slen := make([]byte, 2)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
 			log.Errorf("remotels error:%v", err)
 			return
 		}
-		buflen := int(slen[0])
+
+		newBuf := bytes.NewBuffer(slen)
+		var bufLen uint16
+		binary.Read(newBuf, binary.LittleEndian, &bufLen)
+
+		buflen := int(bufLen)
 
 		rbuf := make([]byte, buflen)
 		_, err = io.ReadFull(s, rbuf)
@@ -81,6 +87,8 @@ func (p *RemotemsgService) RemotemsgHandler(s inet.Stream) {
 }
 
 func (p *RemotemsgService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
+	fmt.Println("local peer secret=", p.Secret)
+
 	md5hash_buf := buf[:md5.Size]
 	crypted := buf[md5.Size:]
 
@@ -104,6 +112,7 @@ type remoteMsg struct {
 	MsgId          string `json:"uid"`
 	Type           string `json:"type"`
 	Hash           string `json:"hash"`
+	FileName       string `json:"fileName"`
 	MsgFromPeerId  string `json:"msg_from_peerid"`
 	MsgFromPeerKey string `json:"msg_from_peerkey"`
 	// if type="process",pos enable
@@ -127,7 +136,7 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 	// store form peerID and privateKey
 	fromPeerId, fromPeerKey := msg.MsgFromPeerId, msg.MsgFromPeerKey
 
-	successServerMsg := func(types string) {
+	successServerMsg := func(types string) error {
 		returnMsg := &remoteMsg{
 			Type: types,
 			Hash: msg.Hash,
@@ -135,17 +144,18 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 		data, err := json.Marshal(returnMsg)
 		if err != nil {
 			log.Errorf("remotemsg error:%v", err)
-			return
+			return err
 		}
 		pid, err := peer.IDB58Decode(fromPeerId)
 		if err != nil {
 			log.Errorf("remotemsg error:%v", err)
-			return
+			return err
 		}
 		if _, err := ps.RemoteMsg(context.TODO(), pid, fromPeerKey, string(data)); err != nil {
 			log.Errorf("remotemsg error:%v", err)
-			return
+			return err
 		}
+		return nil
 	}
 
 	file, _ := exec.LookPath(os.Args[0])
@@ -167,7 +177,7 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 				log.Errorf("remotemsg>>>remotepin error:%v", err)
 				return err
 			}
-			successServerMsg("rRemotepin")
+			return successServerMsg("rRemotepin")
 		case "remotels":
 			cmd := exec.Cmd{
 				Path: path,
@@ -178,7 +188,7 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 				log.Errorf("remotemsg>>>remotels error:%v", err)
 				return err
 			}
-			successServerMsg("rRemotels")
+			return successServerMsg("rRemotels")
 		case "relaypin":
 			if msg.IsRelay { // local is master
 				log.Debug("local is relay")
@@ -208,7 +218,7 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 					return err
 				}
 			}
-			successServerMsg("rRelaypin")
+			return successServerMsg("rRelaypin")
 		case "rRemotepin":
 			fmt.Println("Remotepin command exec successfully!")
 		case "rRemotels":
@@ -236,6 +246,9 @@ func (ps *RemotemsgService) RemoteMsg(ctx context.Context, p peer.ID, key, msg s
 			return
 		default:
 			log.Debugf("remotemsg [%s][%s]", ID, msg)
+			if msg == "" {
+				return
+			}
 			_, err := remotemsg(s, key, msg)
 			if err != nil {
 				log.Errorf("remotemsg error:%v", err)
@@ -257,6 +270,7 @@ func remotemsg(s inet.Stream, key, msg string) (time.Duration, error) {
 
 	orig := PKCS5Padding([]byte(msg), aes.BlockSize)
 	md5hash := md5.Sum(orig)
+
 	crypted, err := Encrypt(orig, []byte(key))
 	if err != nil {
 		return 0, err
@@ -265,8 +279,9 @@ func remotemsg(s inet.Stream, key, msg string) (time.Duration, error) {
 	buf := append(md5hash[:], crypted...)
 	buflen := len(buf)
 
-	slen := make([]byte, 1)
-	slen[0] = byte(buflen)
+	slen := make([]byte, 2)
+	binary.LittleEndian.PutUint16(slen, uint16(buflen))
+
 	_, err = s.Write(slen)
 	if err != nil {
 		return 0, err

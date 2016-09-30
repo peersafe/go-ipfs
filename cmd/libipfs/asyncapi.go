@@ -203,13 +203,13 @@ func IpfsConfig(key, value string) (retValue *C.char, retErr int) {
 }
 
 //export IpfsMessage
-func IpfsMessage(peer_id, peer_key, msg string) int {
+func IpfsMessage(peer_id, peer_key, msg string) {
 	// memcpy for C lib
 	peerId := []byte(peer_id)
 	peerKey := []byte(peer_key)
 	msgs := []byte(msg)
 
-	return ipfsmobile.IpfsAsyncMessage(string(peerId), string(peerKey), string(msgs))
+	ipfsmobile.IpfsAsyncMessage(string(peerId), string(peerKey), string(msgs))
 }
 
 //export IpfsCancel
@@ -221,6 +221,11 @@ func IpfsCancel(uuid string) {
 }
 
 //export IpfsUuid
-func IpfsUuid() string {
-	return ipfsmobile.IpfsUuid()
+func IpfsUuid() (uuid *C.char) {
+	return C.CString(ipfsmobile.IpfsUuid())
+}
+
+//export IpfsPing
+func IpfsPing(peer_id string) bool {
+	return ipfsmobile.IpfsPing(peer_id)
 }

@@ -1,6 +1,7 @@
 package ipfsmobile
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -434,17 +435,16 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	return
 }
 
-func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int) {
+func IpfsAsyncMessage(peer_id, peer_key, msg string) {
 	sync := make(chan struct{})
 	defer close(sync)
 	outerCall := func(result string, err error) {
+		fmt.Println("IpfsAsyncMessage err=", err)
 		if err != nil {
 			sync <- struct{}{}
-			ret = ipfs_lib.UNKOWN
 			return
 		}
 		sync <- struct{}{}
-		ret = ipfs_lib.SUCCESS
 		return
 	}
 	ipfs_lib.IpfsAsyncMessage(peer_id, peer_key, msg, outerCall)
@@ -475,4 +475,29 @@ func ipfsDone(uuid string) {
 
 func geneUuid() string {
 	return uuid.NewV4().String()
+}
+
+func IpfsPing(peer_id string) (ping bool) {
+	sync := make(chan struct{})
+	defer close(sync)
+	outerCall := func(result string, err error) {
+		if err != nil {
+			sync <- struct{}{}
+			ping = false
+			return
+		}
+		if strings.Contains(result, "not found") {
+			sync <- struct{}{}
+			ping = false
+			return
+		}
+		if strings.Contains(result, "time=") && strings.Contains(result, "ms") {
+			sync <- struct{}{}
+			ping = true
+			return
+		}
+	}
+	ipfs_lib.IpfsPing(peer_id, outerCall)
+	<-sync
+	return
 }
