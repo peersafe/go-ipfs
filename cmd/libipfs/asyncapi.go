@@ -221,6 +221,11 @@ func IpfsCancel(uuid string) {
 }
 
 //export IpfsUuid
-func IpfsUuid() string {
-	return ipfsmobile.IpfsUuid()
+func IpfsUuid() (uuid *C.char) {
+	return C.CString(ipfsmobile.IpfsUuid())
+}
+
+//export IpfsPing
+func IpfsPing(peer_id string) bool {
+	return ipfsmobile.IpfsPing(peer_id)
 }

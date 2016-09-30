@@ -14,8 +14,9 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/ipfs/go-ipfs/path"
 	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
+
+	"github.com/ipfs/go-ipfs/path"
 )
 
 var log = logging.Logger("command")

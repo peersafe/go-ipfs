@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	homedir "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
+
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
 	"github.com/ipfs/go-ipfs/commands"
 )
@@ -542,7 +543,7 @@ func IpfsAsyncConfig(key, value string, outerCall commands.RequestCB) {
 	} else if len(key) != 0 && len(value) == 0 {
 		cmd = strings.Join([]string{"ipfs", "config", key}, cmdSep)
 	} else {
-		cmd = strings.Join([]string{"ipfs", "config", key, value, "--json"}, cmdSep)
+		cmd = strings.Join([]string{"ipfs", "config", key, value}, cmdSep)
 	}
 
 	call := func(result string, err error) {
@@ -684,6 +685,26 @@ func IpfsAsyncRelaypin(relay_id, relay_key, peer_id, peer_key, object_hash strin
 	if err != nil {
 		outerCall("", err)
 	}
+}
+
+func IpfsPing(peer_id string, outerCall commands.RequestCB) {
+	cmd := strings.Join([]string{"ipfs", "ping", "-n=1", peer_id}, cmdSep)
+	call := func(result string, err error) {
+		fmt.Println("IpfsPing result=", result, "err=", err)
+		if err != nil {
+			outerCall("", err)
+			return
+		}
+		if result != "" {
+			outerCall(result, nil)
+			return
+		}
+	}
+	_, _, err := ipfsAsyncCmdTime(cmd, 0, call)
+	if err != nil {
+		outerCall("", err)
+	}
+	return
 }
 
 func ipfsAsyncCmd(cmd string, call commands.RequestCB) (int, string, error) {

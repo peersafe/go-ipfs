@@ -9,7 +9,8 @@ make android
 echo "android framework end building......"
 
 
-timestamp=`date +%Y%m%d%H%M%S` 
+#timestamp=`date +%Y%m%d%H%M%S` 
+timestamp=`date +%Y%m%d` 
 iosname="libipfs.0.4.3_dev.ios."$timestamp".tar.gz"
 androidname="libipfs.0.4.3_dev.android."$timestamp".tar.gz"
 echo $iosname
@@ -23,3 +24,6 @@ tar -zcvf $androidname ipfsmobile.aar
 
 rm -rf Ipfsmobile.framework
 rm -rf ipfsmobile.aar
+
+mv $iosname /Users/sunzhiming/Downloads
+mv $androidname /Users/sunzhiming/Downloads
