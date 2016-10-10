@@ -15,13 +15,15 @@ import (
 )
 
 const (
-	keyLen   int = 1596
-	cmdSep       = "&X&"
-	endsep       = "\n"
-	SUCCESS      = 0
-	PARA_ERR     = -1
-	TIMEOUT      = -2
-	UNKOWN       = -3
+	keyLen     int = 1596
+	cmdSep         = "&X&"
+	endsep         = "\n"
+	SUCCESS        = 0
+	PARA_ERR       = -1
+	TIMEOUT        = -2
+	UNKOWN         = -3
+	SECRET_ERR     = -4
+	OFFLINE        = -5
 )
 
 var ipfsPath string

@@ -51,7 +51,7 @@ func (p *RemotemsgService) RemotemsgHandler(s inet.Stream) {
 		slen := make([]byte, 2)
 		_, err := io.ReadFull(s, slen)
 		if err != nil {
-			log.Errorf("remotels error:%v", err)
+			log.Errorf("remotemsg error:%v", err)
 			return
 		}
 
@@ -72,12 +72,14 @@ func (p *RemotemsgService) RemotemsgHandler(s inet.Stream) {
 		content, err := p.DecryptRequest(rbuf)
 		if err != nil {
 			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len(rbuf))
+		} else {
+			fmt.Println(">>>>>>>>>>>>>remotemsg receive msg after decode =", string(content))
+			err = p.remotemsg(content)
+			if err != nil {
+				buf = PKCS5Padding([]byte(fmt.Sprint(err)), len(rbuf))
+			}
 		}
-		fmt.Println(">>>>>>>>>>>>>remotemsg receive msg after decode =", string(content))
-		err = p.remotemsg(content)
-		if err != nil {
-			buf = PKCS5Padding([]byte(fmt.Sprint(err)), len(rbuf))
-		}
+
 		_, err = s.Write(buf)
 		if err != nil {
 			log.Errorf("remotemsg error:%v", err)
@@ -109,19 +111,19 @@ func (p *RemotemsgService) DecryptRequest(buf []byte) (rbuf []byte, err error) {
 }
 
 type remoteMsg struct {
-	MsgId          string `json:"uid"`
-	Type           string `json:"type"`
-	Hash           string `json:"hash"`
-	FileName       string `json:"fileName"`
-	MsgFromPeerId  string `json:"msg_from_peerid"`
-	MsgFromPeerKey string `json:"msg_from_peerkey"`
+	MsgId          string `json:"uid,omitempty"`
+	Type           string `json:"type,omitempty"`
+	Hash           string `json:"hash,omitempty"`
+	FileName       string `json:"fileName,omitempty"`
+	MsgFromPeerId  string `json:"msg_from_peerid,omitempty"`
+	MsgFromPeerKey string `json:"msg_from_peerkey,omitempty"`
 	// if type="process",pos enable
 	Pos int `json:"pos"`
 	Ret int `json:"ret"`
 	// for relaypin
-	PeerId  string `json:"peer_id"`
-	PeerKey string `json:"peer_key"`
-	IsRelay bool   `json:"is_relay"`
+	PeerId  string `json:"peer_id,omitempty"`
+	PeerKey string `json:"peer_key,omitempty"`
+	IsRelay bool   `json:"is_relay,omitempty"`
 }
 
 func (ps *RemotemsgService) remotemsg(content []byte) error {
@@ -249,7 +251,7 @@ func (ps *RemotemsgService) RemoteMsg(ctx context.Context, p peer.ID, key, msg s
 			if msg == "" {
 				return
 			}
-			_, err := remotemsg(s, key, msg)
+			_, err = remotemsg(s, key, msg)
 			if err != nil {
 				log.Errorf("remotemsg error:%v", err)
 			}
@@ -262,7 +264,7 @@ func (ps *RemotemsgService) RemoteMsg(ctx context.Context, p peer.ID, key, msg s
 		}
 	}()
 
-	return out, nil
+	return out, err
 }
 
 func remotemsg(s inet.Stream, key, msg string) (time.Duration, error) {

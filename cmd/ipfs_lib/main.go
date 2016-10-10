@@ -162,6 +162,14 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB, cancel chan st
 		return TIMEOUT, "Api server operation timeout.", errors.New("Api server operation timeout.")
 	}
 
+	// secret failed for remotemsg
+	if strings.Contains(outBuf.String(), "Secret authentication failed") {
+		return SECRET_ERR, outBuf.String(), errors.New(outBuf.String())
+	}
+	if strings.Contains(outBuf.String(), "dial attempt failed") {
+		return OFFLINE, outBuf.String(), errors.New(outBuf.String())
+	}
+
 	return SUCCESS, outBuf.String(), nil
 }
 

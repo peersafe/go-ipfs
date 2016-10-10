@@ -435,17 +435,24 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	return
 }
 
-func IpfsAsyncMessage(peer_id, peer_key, msg string) {
+func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int){
 	sync := make(chan struct{})
 	defer close(sync)
+	ret = 0
 	outerCall := func(result string, err error) {
 		fmt.Println("IpfsAsyncMessage err=", err)
 		if err != nil {
+			// secret failed for remotemsg
+			if strings.Contains(err.Error(), "Secret authentication failed") {
+				ret = -4
+			}
+			if strings.Contains(err.Error(), "dial attempt failed") {
+				ret = -5
+			}
 			sync <- struct{}{}
 			return
 		}
 		sync <- struct{}{}
-		return
 	}
 	ipfs_lib.IpfsAsyncMessage(peer_id, peer_key, msg, outerCall)
 	<-sync

@@ -1,10 +1,15 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
+
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 
 	pstore "gx/ipfs/QmSZi9ygLohBUGyHMqE5N6eToPwqcg7bZQTULeVLFu7Q6d/go-libp2p-peerstore"
 	peer "gx/ipfs/QmWtbQU15LaB5B1JC2F7TV9P4K88vD3PpA4AJrwfCjhML8/go-libp2p-peer"
@@ -36,6 +41,37 @@ Send format message to IPFS node.
 		cmds.StringArg("peer ID", true, false, "ID of peer to be notify"),
 		cmds.StringArg("peer KEY", true, false, "Password of peer to be notify"),
 		cmds.StringArg("msg ", true, true, "Msg to send"),
+	},
+	Marshalers: cmds.MarshalerMap{
+		cmds.Text: func(res cmds.Response) (io.Reader, error) {
+			outChan, ok := res.Output().(<-chan interface{})
+			if !ok {
+				fmt.Println(reflect.TypeOf(res.Output()))
+				return nil, u.ErrCast()
+			}
+
+			marshal := func(v interface{}) (io.Reader, error) {
+				obj, ok := v.(*RemoteMsgResult)
+				if !ok {
+					return nil, u.ErrCast()
+				}
+
+				buf := new(bytes.Buffer)
+				if obj.Success {
+					fmt.Fprintf(buf, "OK\n")
+					return buf, nil
+				} else {
+					fmt.Fprintf(buf, "FAIL")
+					return buf, fmt.Errorf("%s", obj.Text)
+				}
+			}
+
+			return &cmds.ChannelMarshaler{
+				Channel:   outChan,
+				Marshaler: marshal,
+				Res:       res,
+			}, nil
+		},
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
 		ctx := req.Context()
@@ -91,7 +127,7 @@ Send format message to IPFS node.
 		outChan := remoteMsg(ctx, n, peerID, key, msg)
 		res.SetOutput(outChan)
 	},
-	Type: RemoteLsResult{},
+	Type: RemoteMsgResult{},
 }
 
 func remoteMsg(ctx context.Context, n *core.IpfsNode, pid peer.ID, key, msg string) <-chan interface{} {
@@ -137,6 +173,7 @@ func remoteMsg(ctx context.Context, n *core.IpfsNode, pid peer.ID, key, msg stri
 				break
 			}
 			if err != nil {
+				fmt.Println("client receive error:", err)
 				outChan <- &RemoteMsgResult{
 					Success: false,
 					Text:    fmt.Sprint(err),

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	ipfs_mobile "github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
 )
@@ -40,18 +41,23 @@ func (call *CallBack) Daemon(status int, err string) {
 		fmt.Println("peerid=", peerid)
 
 		// conncet
-		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/172.16.154.129/tcp/4001/ipfs/QmV2Brdna6A1kwpYmPRp3PaTJmR6ynr1KN4znBC35EkSkF", 5)
+		ipfs_mobile.IpfsAsyncConnectpeer("/ip4/172.16.154.129/tcp/4001/ipfs/QmSfQdmUjxstTxyFE6tYGvDAQQU6gxkukpAsCjWYhnqkQq", 5)
 
 		// 	add
-		add_uid := ipfs_mobile.IpfsAsyncGet("QmVvvSWZK3csra9QbFMqUrkXtyx1FeSuERpRDpwhJSYkoz", "test", 10)
-		fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
+		// add_uid := ipfs_mobile.IpfsAsyncGet("QmVvvSWZK3csra9QbFMqUrkXtyx1FeSuERpRDpwhJSYkoz", "test", 10)
+		// fmt.Println("func=[IpfsAsyncAdd],uid= ", add_uid)
 
 		// time.Sleep(2 * time.Second)
 
 		// // cancel
 		// ipfs_mobile.IpfsCancel(add_uid)
 
-		// shutdown()
+		msg := `{"type":"remotepin","hash":"QmSB2dMNwD24wKsGA5Zh7n9QrUEBBvhXCoi14urwHVvhuA","msg_from_peerid":"QmYdeo8cQQcwhMvmZZgGcgPpX9CUyY8STgmjrkETioHPCe","msg_from_peerkey":"Uex1AO4K"}`
+		ret := ipfs_mobile.IpfsAsyncMessage("QmSfQdmUjxstTxyFE6tYGvDAQQU6gxkukpAsCjWYhnqkQq", "FAwo7I0R", msg)
+		fmt.Println("IpfsAsyncMessage ret=", ret)
+
+		time.Sleep(5 * time.Second)
+		shutdown()
 	}
 	if status == 1 {
 		fmt.Println("Daemon shutdown...")
@@ -189,10 +195,10 @@ func (call *CallBack) ConnectPeer(peer_addr string, err string) {
 	// fmt.Println("func=[IpfsAsyncGet],uid= ", uid)
 }
 
-func (call *CallBack) Message(peer_id, passwd, msg string, err string) {
+func (call *CallBack) Message(msg string, err string) {
 	fmt.Println(Tab)
 	fmt.Printf("func=[Message],peer_id=[%v],passwd=[%v],msg=[%v],err=[%v]\n",
-		peer_id, passwd, msg, err)
+		msg, err)
 	if err != "" {
 		fmt.Println(err)
 		return

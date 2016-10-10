@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	ipfs_mobile "github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
 )
@@ -10,35 +9,36 @@ import (
 var done chan struct{}
 
 const (
-	PATH = "ipfs_home"
+	// PATH = "ipfs_home"
+	PATH = "/Users/sunzhiming/.ipfs"
 )
 
 func main() {
-	done = make(chan struct{}, 1)
-	defer close(done)
+	// done = make(chan struct{}, 1)
+	// defer close(done)
 
-	// init
-	callback := new(CallBack)
-	fmt.Println(ipfs_mobile.IpfsInit(PATH))
-	time.Sleep(1 * time.Second)
-
-	// daemon
-	go ipfs_mobile.IpfsAsyncDaemon(PATH, callback)
-
-	<-done
-	// config test
+	// // init
+	// callback := new(CallBack)
 	// fmt.Println(ipfs_mobile.IpfsInit(PATH))
-	// ret, e := ipfs_mobile.IpfsConfig("Datastore.ARCCacheSize", "123")
-	// if e != nil {
-	// 	fmt.Println("func=[IpfsAsyncConfig],err= ", e)
-	// 	return
-	// }
-	// fmt.Println("11111func=[IpfsAsyncConfig],ret= ", ret)
+	// time.Sleep(1 * time.Second)
 
-	// ret, e = ipfs_mobile.IpfsConfig("Datastore.ARCCacheSize", "")
-	// if e != nil {
-	// 	fmt.Println("func=[IpfsAsyncConfig],err= ", e)
-	// 	return
-	// }
-	// fmt.Println("22222func=[IpfsAsyncConfig],ret= ", ret)
+	// // daemon
+	// go ipfs_mobile.IpfsAsyncDaemon(PATH, callback)
+
+	// <-done
+	// config test
+	fmt.Println(ipfs_mobile.IpfsInit(PATH))
+	ret, e := ipfs_mobile.IpfsConfig("Identity.IsMobile", "true")
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncConfig],err= ", e)
+		return
+	}
+	fmt.Println("11111func=[IpfsAsyncConfig],ret= ", ret)
+
+	ret, e = ipfs_mobile.IpfsConfig("Identity.IsMobile", "")
+	if e != nil {
+		fmt.Println("func=[IpfsAsyncConfig],err= ", e)
+		return
+	}
+	fmt.Println("22222func=[IpfsAsyncConfig],ret= ", ret)
 }

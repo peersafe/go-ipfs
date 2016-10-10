@@ -24,3 +24,6 @@ tar -zcvf $androidname ipfsmobile.aar
 
 rm -rf Ipfsmobile.framework
 rm -rf ipfsmobile.aar
+
+mv $iosname /Users/sunzhiming/Downloads
+mv $androidname /Users/sunzhiming/Downloads
