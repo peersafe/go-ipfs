@@ -15,6 +15,7 @@ import (
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
+	corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 	path "github.com/ipfs/go-ipfs/path"
 	tar "github.com/ipfs/go-ipfs/thirdparty/tar"
 	uarchive "github.com/ipfs/go-ipfs/unixfs/archive"
@@ -79,6 +80,29 @@ may also specify the level of compression by specifying '-l=<1-9>'.
 		}
 
 		res.SetLength(size)
+
+		// check if repo will exceed storage limit if added
+		// if err := corerepo.ConditionalGC(req.Context(), node, size); err != nil {
+		// 	res.SetError(err, cmds.ErrDiskLimit)
+		// 	return
+		// }
+
+		// check if repo will exceed storage limit if added
+		gc, err := corerepo.NewGC(node)
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		storage, err := gc.Repo.GetStorageUsage()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		if size > gc.StorageMax || storage+size > gc.StorageMax {
+			res.SetError(corerepo.ErrMaxStorageExceeded, cmds.ErrDiskLimit)
+			return
+		}
 
 		archive, _, _ := req.Option("archive").Bool()
 		reader, err := uarchive.DagArchive(ctx, dn, p.String(), node.DAG, archive, cmplvl)
