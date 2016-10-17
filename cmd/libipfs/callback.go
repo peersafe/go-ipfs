@@ -33,6 +33,7 @@ void Message(cb_message fn, char* msg, int ret) {
 import "C"
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 )
 
@@ -64,6 +65,9 @@ func (c caller) Add(uid, hash string, pos int, err string) {
 		if err == "timeout" {
 			ret = TIMEOUT
 		}
+		if strings.Contains(err, "Maximum storage limit exceeded.") {
+			ret = OVER_DISK_LIMIT
+		}
 		fmt.Println("[Add] error:", err)
 	}
 
@@ -77,6 +81,9 @@ func (c caller) Get(uid string, pos int, err string) {
 		ret = UNKOWN
 		if err == "timeout" {
 			ret = TIMEOUT
+		}
+		if strings.Contains(err, "Maximum storage limit exceeded.") {
+			ret = OVER_DISK_LIMIT
 		}
 		fmt.Println("[Get] error:", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"syscall"
 	"time"
@@ -219,12 +220,24 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 			for {
 				select {
 				case removeKey := <-removeKeys:
-					if _, pin, _ := n.Pinning.IsPinned(removeKey); !pin {
+					fmt.Println("arcCache remoteKey=", removeKey)
+					exist, err := n.Blockstore.Has(removeKey)
+					if err != nil {
+						log.Errorf("has block err:%v\n", err)
+					}
+
+					_, pinState, err := n.Pinning.IsPinned(removeKey)
+					if err != nil {
+						log.Errorf("ping removeKey err:%v\n", err)
+					}
+					if !pinState && exist {
 						err := n.Blockstore.DeleteBlock(removeKey)
 						if err != nil {
 							log.Errorf("delete block err:%v\n", err)
 						}
+						fmt.Println("delete block:", removeKey)
 					}
+					fmt.Println("==============removeKey pin state=", pinState, "exist state=", exist)
 				case <-n.Closer:
 					close(removeKeys)
 					return
