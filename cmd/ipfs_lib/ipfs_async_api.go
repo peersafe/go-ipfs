@@ -547,7 +547,7 @@ func IpfsAsyncConfig(key, value string, outerCall commands.RequestCB) {
 	}
 
 	call := func(result string, err error) {
-		fmt.Println("IpfsAsyncConfig result = ", result)
+		fmt.Println("IpfsAsyncConfig result = ", result, "err = ", err)
 		if err != nil {
 			outerCall("", err)
 			return
@@ -573,6 +573,7 @@ func IpfsAsyncMessage(peer_id, peer_key, msg string, outerCall commands.RequestC
 		outerCall("", errors.New("msg len is 0"))
 		return
 	}
+
 	cmd := strings.Join([]string{"ipfs", "remotemsg", peer_id, peer_key, msg}, cmdSep)
 	call := func(result string, err error) {
 		if err != nil {

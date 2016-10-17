@@ -378,7 +378,7 @@ func IpfsAsyncConnectpeer(peer_addr string, second int) {
 }
 
 func IpfsConfig(key, value string) (retValue string, retErr error) {
-	sync := make(chan struct{}, 1)
+	sync := make(chan struct{}, 5) // for mac clib bug
 	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
@@ -386,6 +386,7 @@ func IpfsConfig(key, value string) (retValue string, retErr error) {
 			sync <- struct{}{}
 			return
 		}
+
 		retValue, retErr = result, nil
 		sync <- struct{}{}
 	}
@@ -435,7 +436,7 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	return
 }
 
-func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int){
+func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int) {
 	sync := make(chan struct{})
 	defer close(sync)
 	ret = 0
@@ -446,7 +447,7 @@ func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int){
 			if strings.Contains(err.Error(), "Secret authentication failed") {
 				ret = -4
 			}
-			if strings.Contains(err.Error(), "dial attempt failed") {
+			if strings.Contains(err.Error(), "dial attempt failed") || strings.Contains(err.Error(), "routing: not found") {
 				ret = -5
 			}
 			sync <- struct{}{}
