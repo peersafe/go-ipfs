@@ -11,20 +11,22 @@ import (
 
 	"github.com/ipfs/go-ipfs/core/coreunix"
 
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 	blockservice "github.com/ipfs/go-ipfs/blockservice"
 	cmds "github.com/ipfs/go-ipfs/commands"
 	files "github.com/ipfs/go-ipfs/commands/files"
 	core "github.com/ipfs/go-ipfs/core"
+	corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 	offline "github.com/ipfs/go-ipfs/exchange/offline"
 	dag "github.com/ipfs/go-ipfs/merkledag"
 	dagtest "github.com/ipfs/go-ipfs/merkledag/test"
 	mfs "github.com/ipfs/go-ipfs/mfs"
 	ft "github.com/ipfs/go-ipfs/unixfs"
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 )
 
 // Error indicating the max depth has been exceded.
 var ErrDepthLimitExceeded = fmt.Errorf("depth limit exceeded")
+var totalSize int64
 
 const (
 	quietOptionName    = "quiet"
@@ -114,6 +116,7 @@ You can now refer to the added file in a gateway, like so:
 				return
 			}
 
+			totalSize = size
 			log.Debugf("Total size of file being added: %v\n", size)
 			sizeCh <- size
 		}()
@@ -129,10 +132,10 @@ You can now refer to the added file in a gateway, like so:
 		// check if repo will exceed storage limit if added
 		// TODO: this doesn't handle the case if the hashed file is already in blocks (deduplicated)
 		// TODO: conditional GC is disabled due to it is somehow not possible to pass the size to the daemon
-		//if err := corerepo.ConditionalGC(req.Context(), n, uint64(size)); err != nil {
-		//	res.SetError(err, cmds.ErrNormal)
-		//	return
-		//}
+		if err := corerepo.ConditionalGC(req.Context(), n, uint64(totalSize)); err != nil {
+			res.SetError(err, cmds.ErrDiskLimit)
+			return
+		}
 
 		progress, _, _ := req.Option(progressOptionName).Bool()
 		trickle, _, _ := req.Option(trickleOptionName).Bool()

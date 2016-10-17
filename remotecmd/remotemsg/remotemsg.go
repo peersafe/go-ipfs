@@ -28,6 +28,8 @@ import (
 
 	api "github.com/ipfs/go-ipfs/cmd/ipfs_lib/apiinterface"
 	"github.com/ipfs/go-ipfs/cmd/ipfs_mobile/callback"
+	remotepin "github.com/ipfs/go-ipfs/remotecmd/remotepin"
+	"github.com/ipfs/go-ipfs/repo/config"
 )
 
 var log = logging.Logger("remotemsg")
@@ -35,13 +37,14 @@ var log = logging.Logger("remotemsg")
 const ID = "/ipfs/remotemsg"
 
 type RemotemsgService struct {
-	Host   host.Host
-	Secret string
-	ApiCmd api.Apier
+	Host      host.Host
+	Secret    string
+	ApiCmd    api.Apier
+	RemotePin *remotepin.RemotepinService
 }
 
-func NewRemotemsgService(h host.Host, key string) *RemotemsgService {
-	ps := &RemotemsgService{h, key, api.GApiInterface}
+func NewRemotemsgService(h host.Host, key string, remu config.RemoteMultiplex) *RemotemsgService {
+	ps := &RemotemsgService{h, key, api.GApiInterface, remotepin.NewRemotepinService(h, key, remu)}
 	h.SetStreamHandler(ID, ps.RemotemsgHandler)
 	return ps
 }
@@ -135,6 +138,7 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 		return err
 	}
 
+	// localPeerId, localPeerKey := ps.Host.ID().Pretty(), ps.Secret
 	// store form peerID and privateKey
 	fromPeerId, fromPeerKey := msg.MsgFromPeerId, msg.MsgFromPeerKey
 
@@ -168,15 +172,21 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 	path, _ := filepath.Abs(file)
 
 	if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+		fmt.Println("I am middle server +++++++++++++++++++++++")
 		switch msg.Type {
 		case "remotepin":
-			cmd := exec.Cmd{
-				Path: path,
-				Args: []string{"ipfs", "get", msg.Hash, "-o", "/dev/null"},
-			}
-			err := cmd.Run()
+			// cmd := exec.Cmd{
+			// 	Path: path,
+			// 	Args: []string{"ipfs", "get", msg.Hash, "-o", "/dev/null"},
+			// }
+			// err := cmd.Run()
+			// if err != nil {
+			// 	log.Errorf("remotemsg>>>remotepin error:%v", err)
+			// 	return err
+			// }
+			err := ps.RemotePin.MultiplexRequest(msg.Hash)
 			if err != nil {
-				log.Errorf("remotemsg>>>remotepin error:%v", err)
+				log.Errorf("remotemsg>>>remotels error:%v", err)
 				return err
 			}
 			return successServerMsg("rRemotepin")
@@ -191,42 +201,42 @@ func (ps *RemotemsgService) remotemsg(content []byte) error {
 				return err
 			}
 			return successServerMsg("rRemotels")
-		case "relaypin":
-			if msg.IsRelay { // local is master
-				log.Debug("local is relay")
-				cmd := exec.Cmd{
-					Path: path,
-					Args: []string{"ipfs", "ls", msg.Hash},
-				}
-				err := cmd.Run()
-				if err != nil {
-					log.Errorf("remotemsg->>>relaypin error:%v", err)
-					return err
-				}
-				err = ps.relayPeer(msg.PeerId, msg.PeerKey, msg.Hash)
-				if err != nil {
-					log.Errorf("remotemsg->>>relaypin error:%v", err)
-					return err
-				}
-			} else { // local is slave
-				log.Debug("local is work")
-				cmd := exec.Cmd{
-					Path: path,
-					Args: []string{"ipfs", "pin", "add", msg.Hash},
-				}
-				err := cmd.Run()
-				if err != nil {
-					log.Errorf("remotemsg->>>relaypin local work error:%v", err)
-					return err
-				}
-			}
-			return successServerMsg("rRelaypin")
+		// case "relaypin":
+		// 	if msg.IsRelay { // local is master
+		// 		log.Debug("local is relay")
+		// 		cmd := exec.Cmd{
+		// 			Path: path,
+		// 			Args: []string{"ipfs", "ls", msg.Hash},
+		// 		}
+		// 		err := cmd.Run()
+		// 		if err != nil {
+		// 			log.Errorf("remotemsg->>>relaypin error:%v", err)
+		// 			return err
+		// 		}
+		// 		err = ps.relayPeer(msg.PeerId, msg.PeerKey, msg.Hash)
+		// 		if err != nil {
+		// 			log.Errorf("remotemsg->>>relaypin error:%v", err)
+		// 			return err
+		// 		}
+		// 	} else { // local is slave
+		// 		log.Debug("local is work")
+		// 		cmd := exec.Cmd{
+		// 			Path: path,
+		// 			Args: []string{"ipfs", "pin", "add", msg.Hash},
+		// 		}
+		// 		err := cmd.Run()
+		// 		if err != nil {
+		// 			log.Errorf("remotemsg->>>relaypin local work error:%v", err)
+		// 			return err
+		// 		}
+		// 	}
+		// 	return successServerMsg("rRelaypin")
 		case "rRemotepin":
 			fmt.Println("Remotepin command exec successfully!")
 		case "rRemotels":
 			fmt.Println("Remotels command exec successfully!")
-		case "rRelaypin":
-			fmt.Println("Relaypin command exec successfully!")
+			// case "rRelaypin":
+			// 	fmt.Println("Relaypin command exec successfully!")
 		}
 	} else {
 		callback.GlobalCallBack.Message(string(content), "")

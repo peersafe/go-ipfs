@@ -245,7 +245,7 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	n.Remotepin = remotepin.NewRemotepinService(host, cfg.Identity.Secret, cfg.RemoteMultiplex)
 	n.Remotels = remotels.NewRemotelsService(host, cfg.Identity.Secret)
 	n.Relaypin = relaypin.NewRelaypinService(host, cfg.Identity.Secret)
-	n.Remotemsg = remotemsg.NewRemotemsgService(host, cfg.Identity.Secret)
+	n.Remotemsg = remotemsg.NewRemotemsgService(host, cfg.Identity.Secret, cfg.RemoteMultiplex)
 
 	// setup routing service
 	r, err := routingOption(ctx, host, n.Repo.Datastore())
