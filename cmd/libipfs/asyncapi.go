@@ -6,6 +6,7 @@ package main
 */
 import "C"
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_mobile"
@@ -197,19 +198,20 @@ func IpfsConfig(key, value string) (retValue *C.char, retErr int) {
 	str, err := ipfsmobile.IpfsConfig(string(k), string(v))
 	retValue, retErr = C.CString(str), SUCCESS
 	if err != nil {
+		fmt.Println("IpfsConfig error=", err)
 		retErr = UNKOWN
 	}
 	return
 }
 
 //export IpfsMessage
-func IpfsMessage(peer_id, peer_key, msg string) {
+func IpfsMessage(peer_id, peer_key, msg string) int {
 	// memcpy for C lib
 	peerId := []byte(peer_id)
 	peerKey := []byte(peer_key)
 	msgs := []byte(msg)
 
-	ipfsmobile.IpfsAsyncMessage(string(peerId), string(peerKey), string(msgs))
+	return ipfsmobile.IpfsAsyncMessage(string(peerId), string(peerKey), string(msgs))
 }
 
 //export IpfsCancel

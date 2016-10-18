@@ -4,14 +4,15 @@ import (
 	"errors"
 	"time"
 
+	humanize "gx/ipfs/QmPSBJL4momYnE7DcUyk2DVhD6rH488ZmHBGLbxNdhU44K/go-humanize"
+	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
+	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	"github.com/ipfs/go-ipfs/core"
 	mfs "github.com/ipfs/go-ipfs/mfs"
 	gc "github.com/ipfs/go-ipfs/pin/gc"
 	repo "github.com/ipfs/go-ipfs/repo"
-	humanize "gx/ipfs/QmPSBJL4momYnE7DcUyk2DVhD6rH488ZmHBGLbxNdhU44K/go-humanize"
-	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
-	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 )
 
 var log = logging.Logger("corerepo")
@@ -106,7 +107,6 @@ func GarbageCollect(n *core.IpfsNode, ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-
 }
 
 func GarbageCollectAsync(n *core.IpfsNode, ctx context.Context) (<-chan *KeyRemoved, error) {
@@ -184,6 +184,11 @@ func (gc *GC) maybeGC(ctx context.Context, offset uint64) error {
 		return err
 	}
 
+	// fmt.Println("storage=", storage, "storage+offset=", storage+offset, "gc.StorageGC=", gc.StorageGC, "gc.StorageMax=", gc.StorageMax)
+
+	if offset > gc.StorageMax {
+		return ErrMaxStorageExceeded
+	}
 	if storage+offset > gc.StorageGC {
 		if storage+offset > gc.StorageMax {
 			log.Warningf("pre-GC: %s", ErrMaxStorageExceeded)
@@ -204,6 +209,9 @@ func (gc *GC) maybeGC(ctx context.Context, offset uint64) error {
 			return err
 		}
 		log.Infof("Repo GC done. Released %s\n", humanize.Bytes(uint64(storage-newStorage)))
+		if newStorage+offset >= gc.StorageMax {
+			return ErrMaxStorageExceeded
+		}
 		if newStorage > gc.StorageGC {
 			log.Warningf("post-GC: Watermark still exceeded")
 			if newStorage > gc.StorageMax {
