@@ -78,13 +78,14 @@ func IpfsShutdown() (retErr error) {
 }
 
 type bakpos struct {
-	pos  int
-	done bool
+	realPos float64
+	pos     int
+	done    bool
 }
 
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
-	bakPos := &bakpos{0, false}
+	bakPos := &bakpos{pos: 0, done: false}
 
 	heartBeat := make(chan struct{})
 	go func() {
@@ -204,7 +205,11 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 
 func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
-	bakPos := &bakpos{0, false}
+	bakPos := &bakpos{pos: 0, done: false}
+
+	// for download large file flag
+	var lifePos float64
+
 	heartBeat := make(chan struct{})
 	go func() {
 		timer := time.NewTimer(time.Duration(second) * time.Second)
@@ -213,9 +218,15 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Duration(second) * time.Second)
 			case <-timer.C:
-				globalCallBack.Get(uid, bakPos.pos, "timeout")
-				ipfsDone(uid)
-				return
+				// had pos change,but very small
+				if bakPos.realPos > lifePos {
+					timer = time.NewTimer(time.Duration(second) * time.Second)
+					globalCallBack.Get(uid, bakPos.pos, "")
+				} else {
+					globalCallBack.Get(uid, bakPos.pos, "timeout")
+					ipfsDone(uid)
+					return
+				}
 			default:
 				if bakPos.done {
 					return
@@ -234,12 +245,19 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			results := strings.Split(result, cmdSep)
 			total, _ := strconv.ParseFloat(results[0], 64)
 			current, _ := strconv.ParseFloat(results[1], 64)
+
+			// record pos every callback
+			bakPos.realPos = current
+
 			pos := int((current / total) * 100)
 			if pos == 100 || bakPos.pos == pos {
 				return
 			}
 
 			heartBeat <- struct{}{}
+
+			// record pos after change
+			lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Get(uid, pos, "")
