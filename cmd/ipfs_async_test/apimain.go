@@ -28,14 +28,14 @@ func main() {
 	// <-done
 	// config test
 	fmt.Println(ipfs_mobile.IpfsInit(PATH))
-	ret, e := ipfs_mobile.IpfsConfig("Identity.IsMobile", "true")
+	ret, e := ipfs_mobile.IpfsConfig("Datastore.ARCCacheSize", "123&X&--json")
 	if e != nil {
 		fmt.Println("func=[IpfsAsyncConfig],err= ", e)
 		return
 	}
 	fmt.Println("11111func=[IpfsAsyncConfig],ret= ", ret)
 
-	ret, e = ipfs_mobile.IpfsConfig("Identity.IsMobile", "")
+	ret, e = ipfs_mobile.IpfsConfig("Datastore.ARCCacheSize", "")
 	if e != nil {
 		fmt.Println("func=[IpfsAsyncConfig],err= ", e)
 		return

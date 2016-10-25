@@ -78,13 +78,17 @@ func IpfsShutdown() (retErr error) {
 }
 
 type bakpos struct {
-	pos  int
-	done bool
+	realPos float64
+	pos     int
+	done    bool
 }
 
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
-	bakPos := &bakpos{0, false}
+	bakPos := &bakpos{pos: 0, done: false}
+
+	// for upload large file flag
+	var lifePos float64
 
 	heartBeat := make(chan struct{})
 	go func() {
@@ -94,9 +98,15 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Second * time.Duration(second))
 			case <-timer.C:
-				globalCallBack.Add(uid, "", bakPos.pos, "timeout")
-				ipfsDone(uid)
-				return
+				// had pos change,but very small
+				if bakPos.realPos > lifePos {
+					timer = time.NewTimer(time.Duration(second) * time.Second)
+					globalCallBack.Get(uid, bakPos.pos, "")
+				} else {
+					globalCallBack.Get(uid, bakPos.pos, "timeout")
+					ipfsDone(uid)
+					return
+				}
 			default:
 				if bakPos.done {
 					return
@@ -115,12 +125,19 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			results := strings.Split(result, cmdSep)
 			total, _ := strconv.ParseFloat(results[0], 64)
 			current, _ := strconv.ParseFloat(results[1], 64)
+
+			// record pos every callback
+			bakPos.realPos = current
+
 			pos := int((current / total) * 100)
 			if pos == 100 || bakPos.pos == pos {
 				return
 			}
 
 			heartBeat <- struct{}{}
+
+			// record pos after change
+			lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Add(uid, "", pos, "")
@@ -204,7 +221,11 @@ func IpfsShare(object_hash, share_name string, sencond int) (new_hash string, re
 
 func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
-	bakPos := &bakpos{0, false}
+	bakPos := &bakpos{pos: 0, done: false}
+
+	// for download large file flag
+	var lifePos float64
+
 	heartBeat := make(chan struct{})
 	go func() {
 		timer := time.NewTimer(time.Duration(second) * time.Second)
@@ -213,9 +234,15 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Duration(second) * time.Second)
 			case <-timer.C:
-				globalCallBack.Get(uid, bakPos.pos, "timeout")
-				ipfsDone(uid)
-				return
+				// had pos change,but very small
+				if bakPos.realPos > lifePos {
+					timer = time.NewTimer(time.Duration(second) * time.Second)
+					globalCallBack.Get(uid, bakPos.pos, "")
+				} else {
+					globalCallBack.Get(uid, bakPos.pos, "timeout")
+					ipfsDone(uid)
+					return
+				}
 			default:
 				if bakPos.done {
 					return
@@ -234,12 +261,19 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			results := strings.Split(result, cmdSep)
 			total, _ := strconv.ParseFloat(results[0], 64)
 			current, _ := strconv.ParseFloat(results[1], 64)
+
+			// record pos every callback
+			bakPos.realPos = current
+
 			pos := int((current / total) * 100)
 			if pos == 100 || bakPos.pos == pos {
 				return
 			}
 
 			heartBeat <- struct{}{}
+
+			// record pos after change
+			lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Get(uid, pos, "")
@@ -378,7 +412,7 @@ func IpfsAsyncConnectpeer(peer_addr string, second int) {
 }
 
 func IpfsConfig(key, value string) (retValue string, retErr error) {
-	sync := make(chan struct{}, 1)
+	sync := make(chan struct{}, 5) // for mac clib bug
 	defer close(sync)
 	outerCall := func(result string, err error) {
 		if err != nil {
@@ -386,6 +420,7 @@ func IpfsConfig(key, value string) (retValue string, retErr error) {
 			sync <- struct{}{}
 			return
 		}
+
 		retValue, retErr = result, nil
 		sync <- struct{}{}
 	}
@@ -435,7 +470,7 @@ func IpfsRemotels(peer_id, peer_key, object_hash string, second int) (lsResult s
 	return
 }
 
-func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int){
+func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int) {
 	sync := make(chan struct{})
 	defer close(sync)
 	ret = 0
@@ -446,7 +481,7 @@ func IpfsAsyncMessage(peer_id, peer_key, msg string) (ret int){
 			if strings.Contains(err.Error(), "Secret authentication failed") {
 				ret = -4
 			}
-			if strings.Contains(err.Error(), "dial attempt failed") {
+			if strings.Contains(err.Error(), "dial attempt failed") || strings.Contains(err.Error(), "routing: not found") {
 				ret = -5
 			}
 			sync <- struct{}{}
