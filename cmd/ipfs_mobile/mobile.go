@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
@@ -15,6 +16,7 @@ var (
 	globalCallBack IpfsCallBack
 	cmdSep         string = "&X&"
 	loaderMap      map[string]chan struct{}
+	loaderMapLock  sync.Mutex
 )
 
 type IpfsCallBack interface {
@@ -152,7 +154,9 @@ func IpfsAsyncAdd(os_path string, second int) string {
 		}
 	}
 	cancel := make(chan struct{})
+	loaderMapLock.Lock()
 	loaderMap[uid] = cancel
+	loaderMapLock.Unlock()
 	ipfs_lib.IpfsAsyncAdd(os_path, second, outerCall, cancel)
 	return uid
 }
@@ -290,7 +294,9 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 		}
 	}
 	cancel := make(chan struct{})
+	loaderMapLock.Lock()
 	loaderMap[uid] = cancel
+	loaderMapLock.Unlock()
 	ipfs_lib.IpfsAsyncGet(share_hash, save_path, second, outerCall, cancel)
 	return uid
 }
