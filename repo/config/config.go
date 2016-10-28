@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
+
+	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/mitchellh/go-homedir"
 )
 
 var log = logging.Logger("config")
@@ -30,7 +32,7 @@ type Config struct {
 	API              API                   // local node's API settings
 	Swarm            SwarmConfig
 	RemoteMultiplex  RemoteMultiplex
-	Reprovider Reprovider
+	Reprovider       Reprovider
 }
 
 const (
@@ -49,7 +51,16 @@ func PathRoot() (string, error) {
 	dir := os.Getenv(EnvDir)
 	var err error
 	if len(dir) == 0 {
-		dir, err = homedir.Expand(DefaultPathRoot)
+		file, _ := exec.LookPath(os.Args[0])
+		app := filepath.Clean(file)
+		app = filepath.ToSlash(app)
+		app = filepath.Base(app)
+
+		if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+			dir, err = homedir.Expand(DefaultPathRoot)
+		} else {
+			dir, err = homedir.Home_Unix_Dir, nil
+		}
 	}
 	return dir, err
 }
