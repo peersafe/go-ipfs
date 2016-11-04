@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	gopath "path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
+	corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 	path "github.com/ipfs/go-ipfs/path"
 	tar "github.com/ipfs/go-ipfs/thirdparty/tar"
 	uarchive "github.com/ipfs/go-ipfs/unixfs/archive"
@@ -80,6 +83,38 @@ may also specify the level of compression by specifying '-l=<1-9>'.
 
 		res.SetLength(size)
 
+		// check if repo will exceed storage limit if added
+		// if err := corerepo.ConditionalGC(req.Context(), node, size); err != nil {
+		// 	res.SetError(err, cmds.ErrDiskLimit)
+		// 	return
+		// }
+
+		// check if repo will exceed storage limit if added
+		gc, err := corerepo.NewGC(node)
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		storage, err := gc.Repo.GetStorageUsage()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		// fmt.Printf("current storage=%v,add file size=%v,gc.StorageMax=%v", storage, totalSize, gc.StorageMax)
+
+		if size > gc.StorageMax || storage+size > gc.StorageMax {
+			// middle server, use auto clean
+			if isMiddleSever() {
+				if err := corerepo.ConditionalGC(req.Context(), node, size); err != nil {
+					res.SetError(err, cmds.ErrDiskLimit)
+					return
+				}
+			}
+			res.SetError(corerepo.ErrMaxStorageExceeded, cmds.ErrDiskLimit)
+			return
+		}
+
 		archive, _, _ := req.Option("archive").Bool()
 		reader, err := uarchive.DagArchive(ctx, dn, p.String(), node.DAG, archive, cmplvl)
 		if err != nil {
@@ -127,6 +162,18 @@ may also specify the level of compression by specifying '-l=<1-9>'.
 type clearlineReader struct {
 	io.Reader
 	out io.Writer
+}
+
+func isMiddleSever() bool {
+	file, _ := exec.LookPath(os.Args[0])
+	app := filepath.Clean(file)
+	app = filepath.ToSlash(app)
+	app = filepath.Base(app)
+
+	if strings.HasSuffix(app, "ipfs") || strings.HasSuffix(app, "ipfs.exe") {
+		return true
+	}
+	return false
 }
 
 func (r *clearlineReader) Read(p []byte) (n int, err error) {
