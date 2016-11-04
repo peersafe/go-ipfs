@@ -81,6 +81,7 @@ func IpfsShutdown() (retErr error) {
 
 type bakpos struct {
 	realPos float64
+	lifePos float64
 	pos     int
 	done    bool
 }
@@ -88,9 +89,6 @@ type bakpos struct {
 func IpfsAsyncAdd(os_path string, second int) string {
 	uid := geneUuid()
 	bakPos := &bakpos{pos: 0, done: false}
-
-	// for upload large file flag
-	var lifePos float64
 
 	heartBeat := make(chan struct{})
 	go func() {
@@ -100,8 +98,10 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Second * time.Duration(second))
 			case <-timer.C:
+				fmt.Printf("[IpfsAsyncAdd] realPos=%v,lifePos=%v\n", bakPos.realPos, bakPos.lifePos)
 				// had pos change,but very small
-				if bakPos.realPos > lifePos {
+				if bakPos.realPos > bakPos.lifePos {
+					bakPos.lifePos = bakPos.realPos
 					timer = time.NewTimer(time.Duration(second) * time.Second)
 					globalCallBack.Get(uid, bakPos.pos, "")
 				} else {
@@ -139,7 +139,7 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			heartBeat <- struct{}{}
 
 			// record pos after change
-			lifePos = current
+			bakPos.lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Add(uid, "", pos, "")
@@ -227,9 +227,6 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
 	bakPos := &bakpos{pos: 0, done: false}
 
-	// for download large file flag
-	var lifePos float64
-
 	heartBeat := make(chan struct{})
 	go func() {
 		timer := time.NewTimer(time.Duration(second) * time.Second)
@@ -238,8 +235,10 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Duration(second) * time.Second)
 			case <-timer.C:
+				fmt.Printf("[IpfsAsyncGet] realPos=%v,lifePos=%v\n", bakPos.realPos, bakPos.lifePos)
 				// had pos change,but very small
-				if bakPos.realPos > lifePos {
+				if bakPos.realPos > bakPos.lifePos {
+					bakPos.lifePos = bakPos.realPos
 					timer = time.NewTimer(time.Duration(second) * time.Second)
 					globalCallBack.Get(uid, bakPos.pos, "")
 				} else {
@@ -277,7 +276,7 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			heartBeat <- struct{}{}
 
 			// record pos after change
-			lifePos = current
+			bakPos.lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Get(uid, pos, "")
