@@ -283,6 +283,132 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	return nil
 }
 
+func (n *IpfsNode) Restart() {
+	rcfg, err := n.Repo.Config()
+	if err != nil {
+		//return err
+	}
+
+	do := setupDiscoveryOption(rcfg.Discovery)
+	n.Online(n.Context(), DHTOption, DefaultHostOption, do)
+	n.Blocks = bserv.New(n.Blockstore, n.Exchange)
+	n.DAG.SetBlockService(n.Blocks)
+}
+
+func (n *IpfsNode) Offline() error {
+	log.Debug("core is shutting down...")
+	// owned objects are closed in this teardown to ensure that they're closed
+	// regardless of which constructor was used to add them to the node.
+	var closers []io.Closer
+
+	if n.PeerHost == nil {
+		return nil
+	}
+
+	// NOTE: The order that objects are added(closed) matters, if an object
+	// needs to use another during its shutdown/cleanup process, it should be
+	// closed before that other object
+
+	//n.Closer<-new struct{}
+
+	if n.Blocks != nil {
+		closers = append(closers, n.Blocks)
+	}
+
+	if n.Bootstrapper != nil {
+		closers = append(closers, n.Bootstrapper)
+	}
+
+	if n.Discovery != nil {
+		closers = append(closers, n.Discovery)
+	}
+
+	if n.Exchange != nil {
+		closers = append(closers, n.Exchange)
+	}
+
+	if dht, ok := n.Routing.(*dht.IpfsDHT); ok {
+		closers = append(closers, dht.Process())
+	}
+
+	if n.PeerHost != nil {
+		closers = append(closers, n.PeerHost)
+	}
+
+	//IpnsRepub  *ipnsrp.Republisher   LLH ?????
+
+	var errs []error
+	for _, closer := range closers {
+		if err := closer.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	n.PeerHost = nil
+	return nil
+}
+
+func (n *IpfsNode) Online(ctx context.Context, routingOption RoutingOption, hostOption HostOption, do DiscoveryOption) error {
+	// get undialable addrs from config
+	cfg, err := n.Repo.Config()
+	if err != nil {
+		return err
+	}
+	var addrfilter []*net.IPNet
+	for _, s := range cfg.Swarm.AddrFilters {
+		f, err := mamask.NewMask(s)
+		if err != nil {
+			return fmt.Errorf("incorrectly formatted address filter in config: %s", s)
+		}
+		addrfilter = append(addrfilter, f)
+	}
+
+	peerhost, err := hostOption(ctx, n.Identity, n.Peerstore, n.Reporter, addrfilter, cfg)
+	if err != nil {
+		return err
+	}
+
+	if err := n.startOnlineServicesWithHost(ctx, peerhost, routingOption); err != nil {
+		return err
+	}
+
+	// Ok, now we're ready to listen.
+	if err := startListening(ctx, n.PeerHost, cfg); err != nil {
+		return err
+	}
+
+	n.Reprovider = rp.NewReprovider(n.Routing, n.Blockstore)
+
+	if cfg.Reprovider.Interval != "0" {
+		interval := kReprovideFrequency
+		if cfg.Reprovider.Interval != "" {
+			dur, err := time.ParseDuration(cfg.Reprovider.Interval)
+			if err != nil {
+				return err
+			}
+
+			interval = dur
+		}
+
+		go n.Reprovider.ProvideEvery(ctx, interval)
+	}
+
+	// setup local discovery
+	if do != nil {
+		service, err := do(n.PeerHost)
+		if err != nil {
+			log.Error("mdns error: ", err)
+		} else {
+			service.RegisterNotifee(n)
+			n.Discovery = service
+		}
+	}
+
+	return n.Bootstrap(DefaultBootstrapConfig)
+}
+
 // getCacheSize returns cache life and cache size
 func (n *IpfsNode) getCacheSize() (int, error) {
 	cfg, err := n.Repo.Config()

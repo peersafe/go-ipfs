@@ -84,6 +84,28 @@ func IpfsAsyncShutDown(outerCall commands.RequestCB) {
 	}
 }
 
+func IpfsAsyncOffline(outerCall commands.RequestCB) {
+	cmd := strings.Join([]string{"ipfs", "offline"}, cmdSep)
+	call := func(result string, err error) {
+		outerCall(result, err)
+	}
+	_, _, err := ipfsAsyncCmd(cmd, call)
+	if err != nil {
+		outerCall("", err)
+	}
+}
+
+func IpfsAsyncOnline(outerCall commands.RequestCB) {
+	cmd := strings.Join([]string{"ipfs", "online"}, cmdSep)
+	call := func(result string, err error) {
+		outerCall(result, err)
+	}
+	_, _, err := ipfsAsyncCmd(cmd, call)
+	if err != nil {
+		outerCall("", err)
+	}
+}
+
 func IpfsAsyncId(second int, outerCall commands.RequestCB) {
 	cmd := strings.Join([]string{"ipfs", "id"}, cmdSep)
 	call := func(result string, err error) {

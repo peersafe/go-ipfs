@@ -27,6 +27,8 @@ type DAGService interface {
 	GetMany(context.Context, []key.Key) <-chan *NodeOption
 
 	Batch() *Batch
+
+	SetBlockService(bs *bserv.BlockService)
 }
 
 func NewDAGService(bs *bserv.BlockService) DAGService {
@@ -40,6 +42,10 @@ func NewDAGService(bs *bserv.BlockService) DAGService {
 //       able to free some of them when vm pressure is high
 type dagService struct {
 	Blocks *bserv.BlockService
+}
+
+func (n *dagService) SetBlockService(bs *bserv.BlockService) {
+	n.Blocks = bs
 }
 
 // Add adds a node to the dagService, storing the block in the BlockService

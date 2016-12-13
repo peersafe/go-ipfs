@@ -116,6 +116,8 @@ var rootSubcommands = map[string]*cmds.Command{
 	"relaypin":  RelayPinCmd,
 	"remotemsg": RemoteMsgCmd,
 	"shutdown":  ShutdownCmd,
+	"offline":   OfflineCmd,
+	"online":    OnlineCmd,
 }
 
 // RootRO is the readonly version of Root

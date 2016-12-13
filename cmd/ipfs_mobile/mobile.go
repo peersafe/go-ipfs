@@ -79,6 +79,46 @@ func IpfsShutdown() (retErr error) {
 	return
 }
 
+func IpfsOffline() (retErr error) {
+	sync := make(chan struct{}, 1)
+	defer close(sync)
+	outerCall := func(result string, err error) {
+		if err != nil {
+			retErr = err
+			sync <- struct{}{}
+			return
+		}
+		if result == "" {
+			return
+		}
+		retErr = nil
+		sync <- struct{}{}
+	}
+	ipfs_lib.IpfsAsyncOffline(outerCall)
+	<-sync
+	return
+}
+
+func IpfsOnline() (retErr error) {
+	sync := make(chan struct{}, 1)
+	defer close(sync)
+	outerCall := func(result string, err error) {
+		if err != nil {
+			retErr = err
+			sync <- struct{}{}
+			return
+		}
+		if result == "" {
+			return
+		}
+		retErr = nil
+		sync <- struct{}{}
+	}
+	ipfs_lib.IpfsAsyncOnline(outerCall)
+	<-sync
+	return
+}
+
 type bakpos struct {
 	realPos float64
 	lifePos float64
