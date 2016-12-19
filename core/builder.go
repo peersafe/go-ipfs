@@ -172,7 +172,7 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 		opts.HasARCCacheSize = 0
 	}
 
-	blockstore, removeKeys, err := bstore.CachedBlockstore(bs, ctx, opts)
+	blockstore, removeCids, err := bstore.CachedBlockstore(bs, ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -215,18 +215,19 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 		return err
 	}
 
-	if cfg.Online && removeKeys != nil {
+	if cfg.Online && removeCids != nil {
 		go func() {
 			for {
 				select {
-				case removeKey := <-removeKeys:
+				case removeCid := <-removeCids:
+					removeKey := key.B58KeyDecode(removeCid.String())
 					fmt.Println("arcCache remoteKey=", removeKey)
 					exist, err := n.Blockstore.Has(removeKey)
 					if err != nil {
 						log.Errorf("has block err:%v\n", err)
 					}
 
-					_, pinState, err := n.Pinning.IsPinned(removeKey)
+					_, pinState, err := n.Pinning.IsPinned(removeCid)
 					if err != nil {
 						log.Errorf("ping removeKey err:%v\n", err)
 					}
@@ -239,7 +240,7 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 					}
 					fmt.Println("==============removeKey pin state=", pinState, "exist state=", exist)
 				case <-n.Closer:
-					close(removeKeys)
+					close(removeCids)
 					return
 				}
 			}

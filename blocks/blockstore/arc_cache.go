@@ -7,6 +7,7 @@ import (
 	ds "gx/ipfs/QmNgqJarToRiq2GBaPJhkmW4B5BxS5B74E1rkGvv2JoaTp/go-datastore"
 	lru "gx/ipfs/QmVYxfoJQiZijTgPNHCHgHELvQpbsJNTg6Crmc3dQkj3yy/golang-lru"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+	cid "gx/ipfs/QmfSc2xehWmWLnwwYR91Y8QF4xdASypTFVknutoKQS3GHp/go-cid"
 )
 
 const (
@@ -18,8 +19,8 @@ type arccache struct {
 	blockstore Blockstore
 }
 
-func arcCached(bs Blockstore, lruSize int) (*arccache, chan key.Key, error) {
-	removeKeys := make(chan key.Key, RemoveChanSize)
+func arcCached(bs Blockstore, lruSize int) (*arccache, chan *cid.Cid, error) {
+	removeKeys := make(chan *cid.Cid, RemoveChanSize)
 
 	// evictCallback not use
 	arc, err := lru.NewARC(lruSize)

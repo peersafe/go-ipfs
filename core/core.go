@@ -34,6 +34,7 @@ import (
 	swarm "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net/swarm"
 	addrutil "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/net/swarm/addr"
 	ping "gx/ipfs/Qmf4ETeAWXuThBfWwonVyFqGFSgTWepUDEr1txcctvpTXS/go-libp2p/p2p/protocol/ping"
+	cid "gx/ipfs/QmfSc2xehWmWLnwwYR91Y8QF4xdASypTFVknutoKQS3GHp/go-cid"
 
 	diag "github.com/ipfs/go-ipfs/diagnostics"
 
@@ -43,7 +44,6 @@ import (
 	offroute "github.com/ipfs/go-ipfs/routing/offline"
 
 	bstore "github.com/ipfs/go-ipfs/blocks/blockstore"
-	key "github.com/ipfs/go-ipfs/blocks/key"
 	bserv "github.com/ipfs/go-ipfs/blockservice"
 	exchange "github.com/ipfs/go-ipfs/exchange"
 	bitswap "github.com/ipfs/go-ipfs/exchange/bitswap"
@@ -638,8 +638,8 @@ func (n *IpfsNode) loadBootstrapPeers() ([]pstore.PeerInfo, error) {
 
 func (n *IpfsNode) loadFilesRoot() error {
 	dsk := ds.NewKey("/local/filesroot")
-	pf := func(ctx context.Context, k key.Key) error {
-		return n.Repo.Datastore().Put(dsk, []byte(k))
+	pf := func(ctx context.Context, c *cid.Cid) error {
+		return n.Repo.Datastore().Put(dsk, c.Bytes())
 	}
 
 	var nd *merkledag.Node
@@ -653,8 +653,12 @@ func (n *IpfsNode) loadFilesRoot() error {
 			return fmt.Errorf("failure writing to dagstore: %s", err)
 		}
 	case err == nil:
-		k := key.Key(val.([]byte))
-		nd, err = n.DAG.Get(n.Context(), k)
+		c, err := cid.Cast(val.([]byte))
+		if err != nil {
+			return err
+		}
+
+		nd, err = n.DAG.Get(n.Context(), c)
 		if err != nil {
 			return fmt.Errorf("error loading filesroot from DAG: %s", err)
 		}

@@ -5,7 +5,7 @@ import (
 
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
-	key "github.com/ipfs/go-ipfs/blocks/key"
+	cid "gx/ipfs/QmfSc2xehWmWLnwwYR91Y8QF4xdASypTFVknutoKQS3GHp/go-cid"
 )
 
 // Next to each option is it aproximate memory usage per unit
@@ -24,7 +24,7 @@ func DefaultCacheOpts() CacheOpts {
 }
 
 func CachedBlockstore(bs GCBlockstore,
-	ctx context.Context, opts CacheOpts) (cbs GCBlockstore, keys chan key.Key, err error) {
+	ctx context.Context, opts CacheOpts) (cbs GCBlockstore, cids chan *cid.Cid, err error) {
 	cbs = bs
 
 	if opts.HasBloomFilterSize < 0 || opts.HasBloomFilterHashes < 0 ||
@@ -39,7 +39,7 @@ func CachedBlockstore(bs GCBlockstore,
 		cbs, err = bloomCached(cbs, ctx, opts.HasBloomFilterSize, opts.HasBloomFilterHashes)
 	}
 	if opts.HasARCCacheSize > 0 {
-		cbs, keys, err = arcCached(cbs, opts.HasARCCacheSize)
+		cbs, cids, err = arcCached(cbs, opts.HasARCCacheSize)
 	}
-	return cbs, keys, err
+	return cbs, cids, err
 }
