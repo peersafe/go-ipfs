@@ -10,13 +10,14 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
+	"strings"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	repo "github.com/ipfs/go-ipfs/repo"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
+
+	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
 )
 
 type ConfigField struct {
@@ -171,13 +172,11 @@ included in the output of this command.
 			return
 		}
 
-		idmap, ok := cfg["Identity"].(map[string]interface{})
-		if !ok {
-			res.SetError(fmt.Errorf("config has no identity"), cmds.ErrNormal)
+		err = scrubValue(cfg, []string{config.IdentityTag, config.PrivKeyTag})
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
 			return
 		}
-
-		delete(idmap, "PrivKey")
 
 		output, err := config.HumanOutput(cfg)
 		if err != nil {
@@ -187,6 +186,47 @@ included in the output of this command.
 
 		res.SetOutput(bytes.NewReader(output))
 	},
+}
+
+func scrubValue(m map[string]interface{}, key []string) error {
+	find := func(m map[string]interface{}, k string) (string, interface{}, bool) {
+		lckey := strings.ToLower(k)
+		for mkey, val := range m {
+			lcmkey := strings.ToLower(mkey)
+			if lckey == lcmkey {
+				return mkey, val, true
+			}
+		}
+		return "", nil, false
+	}
+
+	cur := m
+	for _, k := range key[:len(key)-1] {
+		foundk, val, ok := find(cur, k)
+		if !ok {
+			return fmt.Errorf("failed to find specified key")
+		}
+
+		if foundk != k {
+			// case mismatch, calling this an error
+			return fmt.Errorf("case mismatch in config, expected %q but got %q", k, foundk)
+		}
+
+		mval, mok := val.(map[string]interface{})
+		if !mok {
+			return fmt.Errorf("%s was not a map", foundk)
+		}
+
+		cur = mval
+	}
+
+	todel, _, ok := find(cur, key[len(key)-1])
+	if !ok {
+		return fmt.Errorf("%s, not found", strings.Join(key, "."))
+	}
+
+	delete(cur, todel)
+	return nil
 }
 
 var configEditCmd = &cmds.Command{
@@ -259,19 +299,10 @@ func getConfig(r repo.Repo, key string) (*ConfigField, error) {
 }
 
 func setConfig(r repo.Repo, key string, value interface{}) (*ConfigField, error) {
-	// keyF, err := getConfig(r, "Identity.PrivKey")
-	// if err != nil {
-	// 	return nil, errors.New("failed to get PrivKey")
-	// }
-	// privkey := keyF.Value
 	err := r.SetConfigKey(key, value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set config value: %s (maybe use --json?)", err)
 	}
-	// err = r.SetConfigKey("Identity.PrivKey", privkey)
-	// if err != nil {
-	// 	return nil, errors.New("failed to set PrivKey")
-	// }
 	return getConfig(r, key)
 }
 
@@ -295,7 +326,7 @@ func replaceConfig(r repo.Repo, file io.Reader) error {
 		return errors.New("setting private key with API is not supported")
 	}
 
-	keyF, err := getConfig(r, "Identity.PrivKey")
+	keyF, err := getConfig(r, config.PrivKeySelector)
 	if err != nil {
 		return fmt.Errorf("Failed to get PrivKey")
 	}

@@ -79,6 +79,7 @@ func (pm *WantManager) WantBlocks(ctx context.Context, ks []key.Key) {
 }
 
 func (pm *WantManager) CancelWants(ks []key.Key) {
+	log.Infof("cancel wants: %s", ks)
 	pm.addEntries(context.TODO(), ks, true)
 }
 
@@ -87,16 +88,17 @@ func (pm *WantManager) addEntries(ctx context.Context, ks []key.Key, cancel bool
 	for i, k := range ks {
 		entries = append(entries, &bsmsg.Entry{
 			Cancel: cancel,
-			Entry: wantlist.Entry{
+			Entry: &wantlist.Entry{
 				Key:      k,
 				Priority: kMaxPriority - i,
-				Ctx:      ctx,
+				RefCnt:   1,
 			},
 		})
 	}
 	select {
 	case pm.incoming <- entries:
 	case <-pm.ctx.Done():
+	case <-ctx.Done():
 	}
 }
 
@@ -126,50 +128,7 @@ func (pm *WantManager) startPeerHandler(p peer.ID) *msgQueue {
 		mq.refcnt++
 		return nil
 	}
-	/*
-		if pm.ismobile {
-			var oldPeer peer.ID
-			if len(pm.peers) == 1 {
-				// Compare p And exist peer, select the fast one
 
-				var time1, time2 time.Duration
-				var wg sync.WaitGroup
-
-				now := time.Now()
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					pm.network.ConnectTo(context.TODO(), p)
-					time1 = time.Now().Sub(now)
-				}()
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for pe := range pm.peers {
-						oldPeer = pe
-						pm.network.ConnectTo(context.TODO(), pe)
-					}
-					time2 = time.Now().Sub(now)
-				}()
-				wg.Wait()
-
-				log.Debugf("New peer connect cost %v, old peer connect cost %v \n", time1.Seconds(), time2.Seconds())
-				if time1 > time2 {
-					log.Debugf("New peer connect cost more time!\n")
-					return nil
-				}
-
-				// delete old peer
-				if mq != nil {
-					mq.done <- struct{}{}
-					close(mq.done)
-				}
-				delete(pm.peers, oldPeer)
-			}
-		}
-	*/
 	mq = pm.newMsgQueue(p)
 
 	// new peer, we will want to give them our full wantlist
@@ -303,34 +262,31 @@ func (pm *WantManager) Run() {
 		case entries := <-pm.incoming:
 
 			// add changes to our wantlist
+			var filtered []*bsmsg.Entry
 			for _, e := range entries {
 				if e.Cancel {
-					pm.wl.Remove(e.Key)
+					if pm.wl.Remove(e.Key) {
+						filtered = append(filtered, e)
+					}
 				} else {
-					pm.wl.AddEntry(e.Entry)
+					if pm.wl.AddEntry(e.Entry) {
+						filtered = append(filtered, e)
+					}
 				}
 			}
 
 			// broadcast those wantlist changes
-			for _, mq := range pm.peers {
-				mq.addMessage(entries)
-				log.Infof("[incoming] peer id %v is mobile %v \n", mq.p, mq.ismobile)
+			for _, p := range pm.peers {
+				p.addMessage(filtered)
 			}
 
 		case <-tock.C:
 			// resend entire wantlist every so often (REALLY SHOULDNT BE NECESSARY)
 			var es []*bsmsg.Entry
 			for _, e := range pm.wl.Entries() {
-				select {
-				case <-e.Ctx.Done():
-					// entry has been cancelled
-					// simply continue, the entry will be removed from the
-					// wantlist soon enough
-					continue
-				default:
-				}
 				es = append(es, &bsmsg.Entry{Entry: e})
 			}
+
 			for _, p := range pm.peers {
 				// if sent to peer is mobile,ignore it
 				if p.ismobile && count%3 == 1 {
