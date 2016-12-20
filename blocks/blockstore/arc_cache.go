@@ -1,9 +1,11 @@
 package blockstore
 
 import (
-	"github.com/ipfs/go-ipfs/blocks"
 	key "gx/ipfs/Qmce4Y4zg3sYr7xKM5UueS67vhNni6EeWgCRnb7MbLJMew/go-key"
 
+	"github.com/ipfs/go-ipfs/blocks"
+
+	"gx/ipfs/QmRg1gKTHzc3CZXSKzem8aR4E3TubFhbgXwfVuWnSK5CC5/go-metrics-interface"
 	lru "gx/ipfs/QmVYxfoJQiZijTgPNHCHgHELvQpbsJNTg6Crmc3dQkj3yy/golang-lru"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 	ds "gx/ipfs/QmbzuUusHqaLLoNTDEVLcSF6vZDHZDLPC7p4bztRvvkXxU/go-datastore"
@@ -17,9 +19,12 @@ const (
 type arccache struct {
 	arc        *lru.ARCCache
 	blockstore Blockstore
+
+	hits  metrics.Counter
+	total metrics.Counter
 }
 
-func arcCached(bs Blockstore, lruSize int) (*arccache, chan *cid.Cid, error) {
+func newARCCachedBS(ctx context.Context, bs Blockstore, lruSize int) (*arccache, chan *cid.Cid, error) {
 	removeKeys := make(chan *cid.Cid, RemoveChanSize)
 
 	// evictCallback not use
@@ -27,8 +32,11 @@ func arcCached(bs Blockstore, lruSize int) (*arccache, chan *cid.Cid, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	c := &arccache{arc: arc, blockstore: bs}
+	c.hits = metrics.NewCtx(ctx, "arc.hits_total", "Number of ARC cache hits").Counter()
+	c.total = metrics.NewCtx(ctx, "arc_total", "Total number of ARC cache requests").Counter()
 
-	return &arccache{arc: arc, blockstore: bs}, removeKeys, nil
+	return c, removeKeys, nil
 }
 
 func (b *arccache) DeleteBlock(k key.Key) error {
@@ -51,6 +59,7 @@ func (b *arccache) DeleteBlock(k key.Key) error {
 // if ok == false has is inconclusive
 // if ok == true then has respons to question: is it contained
 func (b *arccache) hasCached(k key.Key) (has bool, ok bool) {
+	b.total.Inc()
 	if k == "" {
 		// Return cache invalid so the call to blockstore happens
 		// in case of invalid key and correct error is created.
@@ -59,6 +68,7 @@ func (b *arccache) hasCached(k key.Key) (has bool, ok bool) {
 
 	h, ok := b.arc.Get(k)
 	if ok {
+		b.hits.Inc()
 		return h.(bool), true
 	}
 	return false, false
