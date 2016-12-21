@@ -6,10 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
-
-	"gx/ipfs/QmeWjRodbcZFKe5tMN7poEx3izym6osrLSnTLf9UjJZBbs/pb"
-
 	"github.com/ipfs/go-ipfs/core/coreunix"
+	"gx/ipfs/QmeWjRodbcZFKe5tMN7poEx3izym6osrLSnTLf9UjJZBbs/pb"
 
 	blockservice "github.com/ipfs/go-ipfs/blockservice"
 	cmds "github.com/ipfs/go-ipfs/commands"
@@ -29,17 +27,18 @@ var ErrDepthLimitExceeded = fmt.Errorf("depth limit exceeded")
 var totalSize int64
 
 const (
-	quietOptionName    = "quiet"
-	silentOptionName   = "silent"
-	progressOptionName = "progress"
-	trickleOptionName  = "trickle"
-	wrapOptionName     = "wrap-with-directory"
-	hiddenOptionName   = "hidden"
-	onlyHashOptionName = "only-hash"
-	chunkerOptionName  = "chunker"
-	pinOptionName      = "pin"
-	islibOptionName    = "is-lib"
-	cmdSep             = "&X&"
+	quietOptionName     = "quiet"
+	silentOptionName    = "silent"
+	progressOptionName  = "progress"
+	trickleOptionName   = "trickle"
+	wrapOptionName      = "wrap-with-directory"
+	hiddenOptionName    = "hidden"
+	onlyHashOptionName  = "only-hash"
+	chunkerOptionName   = "chunker"
+	pinOptionName       = "pin"
+	rawLeavesOptionName = "raw-leaves"
+	islibOptionName     = "is-lib"
+	cmdSep              = "&X&"
 )
 
 var AddCmd = &cmds.Command{
@@ -86,6 +85,7 @@ You can now refer to the added file in a gateway, like so:
 		cmds.BoolOption(hiddenOptionName, "H", "Include files that are hidden. Only takes effect on recursive add.").Default(false),
 		cmds.StringOption(chunkerOptionName, "s", "Chunking algorithm to use."),
 		cmds.BoolOption(pinOptionName, "Pin this object when adding.").Default(true),
+		cmds.BoolOption(rawLeavesOptionName, "Use raw blocks for leaf nodes. (experimental)"),
 		cmds.BoolOption(islibOptionName, "Is for lib").Default(false),
 	},
 	PreRun: func(req cmds.Request) error {
@@ -163,6 +163,7 @@ You can now refer to the added file in a gateway, like so:
 		silent, _, _ := req.Option(silentOptionName).Bool()
 		chunker, _, _ := req.Option(chunkerOptionName).String()
 		dopin, _, _ := req.Option(pinOptionName).Bool()
+		rawblks, _, _ := req.Option(rawLeavesOptionName).Bool()
 		islib, _, _ := req.Option(islibOptionName).Bool()
 
 		if hash {
@@ -202,8 +203,9 @@ You can now refer to the added file in a gateway, like so:
 		fileAdder.Trickle = trickle
 		fileAdder.Wrap = wrap
 		fileAdder.Pin = dopin
-		fileAdder.Islib = islib
 		fileAdder.Silent = silent
+		fileAdder.RawLeaves = rawblks
+		fileAdder.Islib = islib
 
 		if hash {
 			md := dagtest.Mock()
@@ -259,7 +261,6 @@ You can now refer to the added file in a gateway, like so:
 		if res.Error() != nil {
 			return
 		}
-
 		outChan, ok := res.Output().(<-chan interface{})
 		if !ok {
 			res.SetError(u.ErrCast(), cmds.ErrNormal)
@@ -313,6 +314,7 @@ You can now refer to the added file in a gateway, like so:
 
 		lastFile := ""
 		var totalProgress, prevFiles, lastBytes int64
+
 	LOOP:
 		for {
 			select {
@@ -369,7 +371,6 @@ You can now refer to the added file in a gateway, like so:
 						(*req.CallBack())(out, nil)
 					}
 				}
-
 			case size := <-sizeChan:
 				if progress {
 					bar.Total = size
