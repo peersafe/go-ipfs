@@ -10,7 +10,6 @@ import (
 	ma "gx/ipfs/QmUAQaWbKxGCUTuoQVvvicbQNZ9APF5pDGWyAZSe93AtKH/go-multiaddr"
 	routing "gx/ipfs/QmXKuGUzLcgoQvp8M6ZEJzupWUNmx8NoqXEbYLMDjL4rjj/go-libp2p-routing"
 	pstore "gx/ipfs/QmXXCcQ7CLg5a81Ui9TTR35QcR4y7ZyihxwfjqaHfUVcVo/go-libp2p-peerstore"
-	key "gx/ipfs/QmYEoKZXHoAToWfhGF3vryhMn3WWhE1o2MasQ8uzY5iDi9/go-key"
 	ggio "gx/ipfs/QmZ4Qi3GaRbjcx28Sme5eMH7RQjGkt8wHxt2a65oLaeFEV/gogo-protobuf/io"
 	cid "gx/ipfs/QmakyCk6Vnn16WEKjbkxieZmM2YLTzkFWizbmGowoYPjro/go-cid"
 	conn "gx/ipfs/QmdiBXu57LDzaoovc89jypRSNEhxVZ4zRig2AsXm9VwrsS/go-libp2p-conn"
@@ -131,7 +130,7 @@ func (bsnet *impl) ConnectTo(ctx context.Context, p peer.ID) error {
 }
 
 // FindProvidersAsync returns a channel of providers for the given key
-func (bsnet *impl) FindProvidersAsync(ctx context.Context, k key.Key, max int) <-chan peer.ID {
+func (bsnet *impl) FindProvidersAsync(ctx context.Context, k *cid.Cid, max int) <-chan peer.ID {
 
 	// Since routing queries are expensive, give bitswap the peers to which we
 	// have open connections. Note that this may cause issues if bitswap starts
@@ -148,12 +147,9 @@ func (bsnet *impl) FindProvidersAsync(ctx context.Context, k key.Key, max int) <
 		out <- id
 	}
 
-	// TEMPORARY SHIM UNTIL CID GETS PROPAGATED
-	c := cid.NewCidV0(k.ToMultihash())
-
 	go func() {
 		defer close(out)
-		providers := bsnet.routing.FindProvidersAsync(ctx, c, max)
+		providers := bsnet.routing.FindProvidersAsync(ctx, k, max)
 		for info := range providers {
 			if info.ID == bsnet.host.ID() {
 				continue // ignore self as provider
@@ -170,9 +166,8 @@ func (bsnet *impl) FindProvidersAsync(ctx context.Context, k key.Key, max int) <
 }
 
 // Provide provides the key to the network
-func (bsnet *impl) Provide(ctx context.Context, k key.Key) error {
-	c := cid.NewCidV0(k.ToMultihash())
-	return bsnet.routing.Provide(ctx, c)
+func (bsnet *impl) Provide(ctx context.Context, k *cid.Cid) error {
+	return bsnet.routing.Provide(ctx, k)
 }
 
 // handleNewStream receives a new stream from the network.

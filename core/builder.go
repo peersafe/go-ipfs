@@ -233,9 +233,8 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 			for {
 				select {
 				case removeCid := <-removeCids:
-					removeKey := key.B58KeyDecode(removeCid.String())
-					fmt.Println("arcCache remoteKey=", removeKey)
-					exist, err := n.Blockstore.Has(removeKey)
+					fmt.Println("arcCache remoteKey=", removeCid.String())
+					exist, err := n.Blockstore.Has(removeCid)
 					if err != nil {
 						log.Errorf("has block err:%v\n", err)
 					}
@@ -245,11 +244,11 @@ func setupNode(ctx context.Context, n *IpfsNode, cfg *BuildCfg) error {
 						log.Errorf("ping removeKey err:%v\n", err)
 					}
 					if !pinState && exist {
-						err := n.Blockstore.DeleteBlock(removeKey)
+						err := n.Blockstore.DeleteBlock(removeCid)
 						if err != nil {
 							log.Errorf("delete block err:%v\n", err)
 						}
-						fmt.Println("delete block:", removeKey)
+						fmt.Println("delete block:", removeCid.String())
 					}
 					fmt.Println("==============removeKey pin state=", pinState, "exist state=", exist)
 				case <-n.Closer:

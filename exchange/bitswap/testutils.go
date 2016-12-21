@@ -113,7 +113,7 @@ func Session(ctx context.Context, net tn.Network, p testutil.Identity) Instance 
 
 	const alwaysSendToPeer = true
 
-	bs := New(ctx, p.ID(), adapter, bstore, alwaysSendToPeer).(*Bitswap)
+	bs := New(ctx, p.ID(), adapter, bstore, alwaysSendToPeer, false).(*Bitswap)
 
 	return Instance{
 		Peer:            p.ID(),
