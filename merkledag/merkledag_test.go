@@ -22,7 +22,7 @@ import (
 	key "gx/ipfs/QmYEoKZXHoAToWfhGF3vryhMn3WWhE1o2MasQ8uzY5iDi9/go-key"
 
 	"context"
-	cid "gx/ipfs/QmakyCk6Vnn16WEKjbkxieZmM2YLTzkFWizbmGowoYPjro/go-cid"
+	cid "gx/ipfs/QmXUuRadqDq5BuFWzVU6VuKaSjTcNm1gNCtLvvP1TJCW4z/go-cid"
 	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
 )
 
@@ -237,7 +237,7 @@ func TestFetchGraph(t *testing.T) {
 	}
 
 	// create an offline dagstore and ensure all blocks were fetched
-	bs := bserv.New(bsis[1].Blockstore, offline.Exchange(bsis[1].Blockstore))
+	bs := bserv.New(bsis[1].Blockstore(), offline.Exchange(bsis[1].Blockstore()))
 
 	offline_ds := NewDAGService(bs)
 

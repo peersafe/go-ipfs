@@ -12,7 +12,7 @@ import (
 	offline "github.com/ipfs/go-ipfs/exchange/offline"
 
 	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
-	cid "gx/ipfs/QmakyCk6Vnn16WEKjbkxieZmM2YLTzkFWizbmGowoYPjro/go-cid"
+	cid "gx/ipfs/QmXUuRadqDq5BuFWzVU6VuKaSjTcNm1gNCtLvvP1TJCW4z/go-cid"
 )
 
 var log = logging.Logger("merkledag")
@@ -32,7 +32,7 @@ type DAGService interface {
 
 	LinkService
 
-	SetBlockService(bs *bserv.BlockService)
+	SetBlockService(bs bserv.BlockService)
 }
 
 type LinkService interface {
@@ -43,7 +43,7 @@ type LinkService interface {
 	GetOfflineLinkService() LinkService
 }
 
-func NewDAGService(bs *bserv.BlockService) *dagService {
+func NewDAGService(bs bserv.BlockService) *dagService {
 	return &dagService{Blocks: bs}
 }
 
@@ -53,10 +53,10 @@ func NewDAGService(bs *bserv.BlockService) *dagService {
 // TODO: should cache Nodes that are in memory, and be
 //       able to free some of them when vm pressure is high
 type dagService struct {
-	Blocks *bserv.BlockService
+	Blocks bserv.BlockService
 }
 
-func (n *dagService) SetBlockService(bs *bserv.BlockService) {
+func (n *dagService) SetBlockService(bs bserv.BlockService) {
 	n.Blocks = bs
 }
 
@@ -119,8 +119,8 @@ func (n *dagService) GetLinks(ctx context.Context, c *cid.Cid) ([]*Link, error) 
 }
 
 func (n *dagService) GetOfflineLinkService() LinkService {
-	if n.Blocks.Exchange.IsOnline() {
-		bsrv := bserv.New(n.Blocks.Blockstore, offline.Exchange(n.Blocks.Blockstore))
+	if n.Blocks.Exchange().IsOnline() {
+		bsrv := bserv.New(n.Blocks.Blockstore(), offline.Exchange(n.Blocks.Blockstore()))
 		return NewDAGService(bsrv)
 	} else {
 		return n
