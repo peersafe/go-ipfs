@@ -81,6 +81,7 @@ type mode int
 const (
 	// zero value is not a valid mode, must be explicitly set
 	invalidMode mode = iota
+	localMode
 	offlineMode
 	onlineMode
 )
@@ -129,7 +130,8 @@ type IpfsNode struct {
 	ctx  context.Context
 
 	mode   mode
-	Closer chan struct{}
+	localModeSet bool
+	Closer chan  struct{}
 }
 
 // Mounts defines what the node's mount state is. This should
@@ -548,6 +550,26 @@ func (n *IpfsNode) teardown() error {
 func (n *IpfsNode) OnlineMode() bool {
 	switch n.mode {
 	case onlineMode:
+		return true
+	default:
+		return false
+	}
+}
+
+func (n *IpfsNode) SetLocal(isLocal bool) {
+	if isLocal {
+		n.mode = localMode
+	}
+	n.localModeSet = true
+}
+
+func (n *IpfsNode) LocalMode() bool {
+	if !n.localModeSet {
+		// programmer error should not happen
+		panic("local mode not set")
+	}
+	switch n.mode {
+	case localMode:
 		return true
 	default:
 		return false
