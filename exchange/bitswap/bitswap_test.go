@@ -16,8 +16,9 @@ import (
 	travis "github.com/ipfs/go-ipfs/thirdparty/testutil/ci/travis"
 
 	detectrace "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-detect-race"
-	p2ptestutil "gx/ipfs/QmUYzZRJcuUxLSnSzF1bSyw1jYbNAULkBrbS6rnr7F72uK/go-libp2p/p2p/test/util"
-	cid "gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
+
+	p2ptestutil "gx/ipfs/QmWdGJY4fcsfhLHucEfivw8J71yUqNUFbzdU1jnJBnN5Xh/go-libp2p-netutil"
+	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
 )
 
 // FIXME the tests are really sensitive to the network delay. fix them to work

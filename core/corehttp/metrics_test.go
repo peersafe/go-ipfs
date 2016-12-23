@@ -1,14 +1,15 @@
 package corehttp
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	context "context"
 	core "github.com/ipfs/go-ipfs/core"
-	inet "gx/ipfs/QmU3pGGVT1riXp5dBJbNrGpxssVScfvk9236drRHZZbKJ1/go-libp2p-net"
-	bhost "gx/ipfs/QmUYzZRJcuUxLSnSzF1bSyw1jYbNAULkBrbS6rnr7F72uK/go-libp2p/p2p/host/basic"
-	testutil "gx/ipfs/QmUYzZRJcuUxLSnSzF1bSyw1jYbNAULkBrbS6rnr7F72uK/go-libp2p/p2p/test/util"
+
+	inet "gx/ipfs/QmQx1dHDDYENugYgqA22BaBrRfuv1coSsuPiM7rYh1wwGH/go-libp2p-net"
+	testutil "gx/ipfs/QmWdGJY4fcsfhLHucEfivw8J71yUqNUFbzdU1jnJBnN5Xh/go-libp2p-netutil"
+	bhost "gx/ipfs/QmbzCT1CwxVZ2ednptC9RavuJe7Bv8DDi2Ne89qUrA37XM/go-libp2p/p2p/host/basic"
 )
 
 // This test is based on go-libp2p/p2p/net/swarm.TestConnectednessCorrect
@@ -19,7 +20,7 @@ func TestPeersTotal(t *testing.T) {
 
 	hosts := make([]*bhost.BasicHost, 4)
 	for i := 0; i < 4; i++ {
-		hosts[i] = testutil.GenHostSwarm(t, ctx)
+		hosts[i] = bhost.New(testutil.GenSwarmNetwork(t, ctx))
 	}
 
 	dial := func(a, b inet.Network) {

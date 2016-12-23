@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,10 +14,10 @@ import (
 	cmds "github.com/ipfs/go-ipfs/commands"
 	core "github.com/ipfs/go-ipfs/core"
 
-	pstore "gx/ipfs/QmXXCcQ7CLg5a81Ui9TTR35QcR4y7ZyihxwfjqaHfUVcVo/go-libp2p-peerstore"
+	floodsub "gx/ipfs/QmV5jot2GfVXmgvetHExJCa2hprebf3AKjprZtuwaXSr1v/floodsub"
 	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
-	cid "gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
-	floodsub "gx/ipfs/Qmd6gKBjErWcfJLJ22wDJu1z2EqbFKb4wheNobZJtSxf8M/floodsub"
+	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
+	pstore "gx/ipfs/QmeXj9VAjmYQZxpmVz7VzccbJrpmr8qkCDSjfVNsPTWTYU/go-libp2p-peerstore"
 )
 
 var PubsubCmd = &cmds.Command{
@@ -77,7 +78,7 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 		}
 
 		topic := req.Arguments()[0]
-		msgs, err := n.Floodsub.Subscribe(req.Context(), topic)
+		sub, err := n.Floodsub.Subscribe(topic)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
@@ -86,19 +87,22 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 		out := make(chan interface{})
 		res.SetOutput((<-chan interface{})(out))
 
-		ctx := req.Context()
 		go func() {
+			defer sub.Cancel()
 			defer close(out)
+
+			out <- floodsub.Message{}
+
 			for {
-				select {
-				case msg, ok := <-msgs:
-					if !ok {
-						return
-					}
-					out <- msg
-				case <-ctx.Done():
-					n.Floodsub.Unsub(topic)
+				msg, err := sub.Next(req.Context())
+				if err == io.EOF || err == context.Canceled {
+					return
+				} else if err != nil {
+					res.SetError(err, cmds.ErrNormal)
+					return
 				}
+
+				out <- msg
 			}
 		}()
 
@@ -118,16 +122,30 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 	},
 	Marshalers: cmds.MarshalerMap{
 		cmds.Text: getPsMsgMarshaler(func(m *floodsub.Message) (io.Reader, error) {
+			if m.Message == nil {
+				return strings.NewReader(""), nil
+			}
+
 			return bytes.NewReader(m.Data), nil
 		}),
 		"ndpayload": getPsMsgMarshaler(func(m *floodsub.Message) (io.Reader, error) {
+			if m.Message == nil {
+				return strings.NewReader("\n"), nil
+			}
+
 			m.Data = append(m.Data, '\n')
 			return bytes.NewReader(m.Data), nil
 		}),
 		"lenpayload": getPsMsgMarshaler(func(m *floodsub.Message) (io.Reader, error) {
 			buf := make([]byte, 8)
-			n := binary.PutUvarint(buf, uint64(len(m.Data)))
-			return io.MultiReader(bytes.NewReader(buf[:n]), bytes.NewReader(m.Data)), nil
+
+			var data []byte
+			if m.Message != nil {
+				data = m.Data
+			}
+
+			n := binary.PutUvarint(buf, uint64(len(data)))
+			return io.MultiReader(bytes.NewReader(buf[:n]), bytes.NewReader(data)), nil
 		}),
 	},
 	Type: floodsub.Message{},
