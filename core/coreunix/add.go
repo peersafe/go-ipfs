@@ -90,7 +90,7 @@ func NewAdder(ctx context.Context, p pin.Pinner, bs bstore.GCBlockstore, ds dag.
 
 }
 
-// Internal structure for holding the switches passed to the `add` call
+// Adder holds the switches passed to the `add` command.
 type Adder struct {
 	ctx        context.Context
 	pinning    pin.Pinner
@@ -116,7 +116,7 @@ func (adder *Adder) SetMfsRoot(r *mfs.Root) {
 	adder.mr = r
 }
 
-// Perform the actual add & pin locally, outputting results to reader
+// Constructs a node from reader's data, and adds it. Doesn't pin.
 func (adder Adder) add(reader io.Reader) (node.Node, error) {
 	chnk, err := chunk.FromString(reader, adder.Chunker)
 	if err != nil {
@@ -253,12 +253,14 @@ func (adder *Adder) outputDirs(path string, fsn mfs.FSNode) error {
 	}
 }
 
-// Add builds a merkledag from the a reader, pinning all objects to the local
-// datastore. Returns a key representing the root node.
+// Add builds a merkledag node from a reader, adds it to the blockstore,
+// and returns the key representing that node.
+// If you want to pin it, use NewAdder() and Adder.PinRoot().
 func Add(n *core.IpfsNode, r io.Reader) (string, error) {
 	return AddWithContext(n.Context(), n, r)
 }
 
+// AddWithContext does the same as Add, but with a custom context.
 func AddWithContext(ctx context.Context, n *core.IpfsNode, r io.Reader) (string, error) {
 	defer n.Blockstore.PinLock().Unlock()
 
@@ -359,7 +361,7 @@ func (adder *Adder) addNode(node node.Node, path string) error {
 	return nil
 }
 
-// Add the given file while respecting the adder.
+// AddFile adds the given file while respecting the adder.
 func (adder *Adder) AddFile(file files.File) error {
 	if adder.Pin {
 		adder.unlocker = adder.blockstore.PinLock()
