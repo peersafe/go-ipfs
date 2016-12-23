@@ -16,7 +16,6 @@ import (
 	crypto "gx/ipfs/QmfWDLQjGjVe4fr5CoztYW2DYYjRysMJrFe1RCsXLPTf46/go-libp2p-crypto"
 )
 
-
 var errNotOnline = errors.New("This command must be run in online mode. Try running 'ipfs daemon' first.")
 
 var PublishCmd = &cmds.Command{
@@ -57,6 +56,7 @@ Publish an <ipfs-path> to another public key (not implemented):
     This accepts durations such as "300s", "1.5h" or "2h45m". Valid time units are
     "ns", "us" (or "µs"), "ms", "s", "m", "h".`).Default("24h"),
 		cmds.StringOption("ttl", "Time duration this record should be cached for (caution: experimental)."),
+		cmds.StringOption("key", "k", "name of key to use").Default("self"),
 		cmds.BoolOption(islibOptionName, "Is for lib").Default(false),
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
@@ -110,13 +110,20 @@ Publish an <ipfs-path> to another public key (not implemented):
 
 			ctx = context.WithValue(ctx, "ipns-publish-ttl", d)
 		}
-
+		
 		if _, _, err := req.Option(islibOptionName).Bool(); err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
 
-		output, err := publish(ctx, n, n.PrivateKey, path.Path(pstr), popts)
+		kname, _, _ := req.Option("key").String()
+		k, err := n.GetKey(kname)
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		output, err := publish(ctx, n, k, path.Path(pstr), popts)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return

@@ -41,7 +41,7 @@ type BitSwapNetwork interface {
 }
 
 type MessageSender interface {
-	SendMsg(bsmsg.BitSwapMessage) error
+	SendMsg(context.Context, bsmsg.BitSwapMessage) error
 	Close() error
 }
 
