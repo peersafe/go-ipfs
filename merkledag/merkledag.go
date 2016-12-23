@@ -109,6 +109,7 @@ func decodeBlock(b blocks.Block) (node.Node, error) {
 		}
 
 		decnd.cached = b.Cid()
+		decnd.Prefix = b.Cid().Prefix()
 		return decnd, nil
 	case cid.Raw:
 		return NewRawNode(b.RawData()), nil
