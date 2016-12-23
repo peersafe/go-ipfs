@@ -1,9 +1,9 @@
 package dshelp
 
 import (
-	cid "gx/ipfs/QmXfiyr2RWEXpVDdaYnD2HNiBk6UBddsvEP4RPfXb6nGqY/go-cid"
 	base32 "gx/ipfs/Qmb1DA2A9LS2wR4FFweB4uEDomFsdmnw1VLawLE1yQzudj/base32"
 	ds "gx/ipfs/QmbzuUusHqaLLoNTDEVLcSF6vZDHZDLPC7p4bztRvvkXxU/go-datastore"
+	cid "gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
 )
 
 // TODO: put this code into the go-datastore itself
@@ -21,6 +21,14 @@ func CidToDsKey(k *cid.Cid) ds.Key {
 
 func DsKeyToCid(dsKey ds.Key) (*cid.Cid, error) {
 	kb, err := BinaryFromDsKey(dsKey)
+	if err != nil {
+		return nil, err
+	}
+	return cid.Cast(kb)
+}
+
+func DsKeyStringToCid(dsKey string) (*cid.Cid, error) {
+	kb, err := base32.RawStdEncoding.DecodeString(dsKey[1:])
 	if err != nil {
 		return nil, err
 	}
