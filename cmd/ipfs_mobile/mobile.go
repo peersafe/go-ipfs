@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ipfs/go-ipfs/cmd/ipfs_lib"
@@ -15,6 +16,7 @@ var (
 	globalCallBack IpfsCallBack
 	cmdSep         string = "&X&"
 	loaderMap      map[string]chan struct{}
+	loaderMapLock  sync.Mutex
 )
 
 type IpfsCallBack interface {
@@ -79,6 +81,7 @@ func IpfsShutdown() (retErr error) {
 
 type bakpos struct {
 	realPos float64
+	lifePos float64
 	pos     int
 	done    bool
 }
@@ -95,9 +98,17 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Second * time.Duration(second))
 			case <-timer.C:
-				globalCallBack.Add(uid, "", bakPos.pos, "timeout")
-				ipfsDone(uid)
-				return
+				fmt.Printf("[IpfsAsyncAdd] realPos=%v,lifePos=%v\n", bakPos.realPos, bakPos.lifePos)
+				// had pos change,but very small
+				if bakPos.realPos > bakPos.lifePos {
+					bakPos.lifePos = bakPos.realPos
+					timer = time.NewTimer(time.Duration(second) * time.Second)
+					globalCallBack.Get(uid, bakPos.pos, "")
+				} else {
+					globalCallBack.Get(uid, bakPos.pos, "timeout")
+					ipfsDone(uid)
+					return
+				}
 			default:
 				if bakPos.done {
 					return
@@ -116,12 +127,19 @@ func IpfsAsyncAdd(os_path string, second int) string {
 			results := strings.Split(result, cmdSep)
 			total, _ := strconv.ParseFloat(results[0], 64)
 			current, _ := strconv.ParseFloat(results[1], 64)
+
+			// record pos every callback
+			bakPos.realPos = current
+
 			pos := int((current / total) * 100)
 			if pos == 100 || bakPos.pos == pos {
 				return
 			}
 
 			heartBeat <- struct{}{}
+
+			// record pos after change
+			bakPos.lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Add(uid, "", pos, "")
@@ -136,7 +154,9 @@ func IpfsAsyncAdd(os_path string, second int) string {
 		}
 	}
 	cancel := make(chan struct{})
+	loaderMapLock.Lock()
 	loaderMap[uid] = cancel
+	loaderMapLock.Unlock()
 	ipfs_lib.IpfsAsyncAdd(os_path, second, outerCall, cancel)
 	return uid
 }
@@ -207,9 +227,6 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 	uid := geneUuid()
 	bakPos := &bakpos{pos: 0, done: false}
 
-	// for download large file flag
-	var lifePos float64
-
 	heartBeat := make(chan struct{})
 	go func() {
 		timer := time.NewTimer(time.Duration(second) * time.Second)
@@ -218,8 +235,10 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			case <-heartBeat:
 				timer = time.NewTimer(time.Duration(second) * time.Second)
 			case <-timer.C:
+				fmt.Printf("[IpfsAsyncGet] realPos=%v,lifePos=%v\n", bakPos.realPos, bakPos.lifePos)
 				// had pos change,but very small
-				if bakPos.realPos > lifePos {
+				if bakPos.realPos > bakPos.lifePos {
+					bakPos.lifePos = bakPos.realPos
 					timer = time.NewTimer(time.Duration(second) * time.Second)
 					globalCallBack.Get(uid, bakPos.pos, "")
 				} else {
@@ -257,7 +276,7 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 			heartBeat <- struct{}{}
 
 			// record pos after change
-			lifePos = current
+			bakPos.lifePos = current
 
 			bakPos.pos = pos
 			globalCallBack.Get(uid, pos, "")
@@ -274,7 +293,9 @@ func IpfsAsyncGet(share_hash, save_path string, second int) string {
 		}
 	}
 	cancel := make(chan struct{})
+	loaderMapLock.Lock()
 	loaderMap[uid] = cancel
+	loaderMapLock.Unlock()
 	ipfs_lib.IpfsAsyncGet(share_hash, save_path, second, outerCall, cancel)
 	return uid
 }
