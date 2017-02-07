@@ -52,9 +52,9 @@
       "version": "0.1.0"
     },
     {
-      "hash": "QmU6FqHBr1W5ajRrj4cr2SfGq1w8gq2LpS42JWRysEb3BK",
+      "hash": "QmSXCTgRb3JhrV5ALbWocbNGD8Tc3HVHczFYvYKrSQAau3",
       "name": "iptb",
-      "version": "1.1.2"
+      "version": "1.1.4"
     },
     {
       "hash": "QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J",
@@ -201,9 +201,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmbzCT1CwxVZ2ednptC9RavuJe7Bv8DDi2Ne89qUrA37XM",
+      "hash": "QmdzDdLZ7nj133QvNHypyS9Y39g35bMFk5DJ2pmX7YqtKU",
       "name": "go-libp2p",
-      "version": "4.3.0"
+      "version": "4.3.5"
     },
     {
       "author": "whyrusleeping",
@@ -213,9 +213,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmbx2KUs8mUbDUiiESzC1ms7mdmh4pRu8X1V1tffC46M4n",
+      "hash": "QmQktQvV8bRSZK3RJz9LW7m7uGFWZjdigzJxgfSrteY1Bd",
       "name": "go-ds-flatfs",
-      "version": "1.0.1"
+      "version": "1.1.1"
     },
     {
       "author": "whyrusleeping",
@@ -248,9 +248,9 @@
       "version": "0.1.2"
     },
     {
-      "hash": "QmNQPjpcXrwwwgDErKzKUm2xxhXCB3cuFgTHsrcCJ5uGbu",
+      "hash": "QmRG9fdibExi5DFy8kzyxF76jvZVUb2mQBUSMNP1YaYn9M",
       "name": "go-libp2p-kad-dht",
-      "version": "2.4.8"
+      "version": "2.4.14"
     },
     {
       "author": "whyrusleeping",
@@ -260,9 +260,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmV5jot2GfVXmgvetHExJCa2hprebf3AKjprZtuwaXSr1v",
+      "hash": "QmX3L7GWQ2HfvdwUM7kFJrtKfycamfhricAFSshyHtCB3h",
       "name": "floodsub",
-      "version": "0.8.2"
+      "version": "0.8.7"
     },
     {
       "author": "whyrusleeping",
@@ -272,9 +272,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmbuuwTd9x4NReZ7sxtiKk7wFcfDUo54MfWBdtF5MRCPGR",
+      "hash": "Qmf658QLDTXfRDgnGmUB6TYj671XjmHScG61p3g7dSxUcF",
       "name": "go-ipld-cbor",
-      "version": "0.4.2"
+      "version": "1.1.0"
     },
     {
       "author": "lgierth",
@@ -301,10 +301,10 @@
       "version": "3.3.0"
     }
   ],
-  "gxVersion": "0.4.0",
+  "gxVersion": "0.10.0",
   "language": "go",
   "license": "MIT",
   "name": "go-ipfs",
-  "version": "0.4.5-dev"
+  "version": "0.4.5-rc2"
 }
 

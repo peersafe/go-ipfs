@@ -47,6 +47,7 @@ ADVANCED COMMANDS
   pin           Pin objects to local storage
   repo          Manipulate the IPFS repository
   stats         Various operational stats
+  key           Create and manipulate keypairs
 
 NETWORK COMMANDS
   id            Show info about IPFS peers

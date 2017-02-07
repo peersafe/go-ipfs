@@ -63,7 +63,8 @@ test_expect_success ".ipfs/ has been created" '
 	test -d ".ipfs" &&
 	test -f ".ipfs/config" &&
 	test -d ".ipfs/datastore" &&
-	test -d ".ipfs/blocks" ||
+	test -d ".ipfs/blocks" &&
+	test ! -f ._check_writeable ||
 	test_fsh ls -al .ipfs
 '
 
@@ -115,6 +116,10 @@ test_expect_success "'ipfs init --empty-repo' output looks good" '
 
 test_expect_success "Welcome readme doesn't exists" '
 	test_must_fail ipfs cat /ipfs/$HASH_WELCOME_DOCS/readme
+'
+
+test_expect_success "ipfs id agent string contains correct version" '
+	ipfs id -f "<aver>" | grep $(ipfs version -n)
 '
 
 test_expect_success "clean up ipfs dir" '

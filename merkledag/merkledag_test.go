@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	blocks "github.com/ipfs/go-ipfs/blocks"
 	bserv "github.com/ipfs/go-ipfs/blockservice"
@@ -483,5 +484,66 @@ func TestCidRetention(t *testing.T) {
 
 	if !out.Cid().Equals(c2) {
 		t.Fatal("output cid didnt match")
+	}
+}
+
+func TestCidRawDoesnNeedData(t *testing.T) {
+	srv := NewDAGService(dstest.Bserv())
+	nd := NewRawNode([]byte("somedata"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// there is no data for this node in the blockservice
+	// so dag service can't load it
+	links, err := srv.GetLinks(ctx, nd.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 0 {
+		t.Fatal("raw node shouldn't have any links")
+	}
+}
+
+func TestEnumerateAsyncFailsNotFound(t *testing.T) {
+	a := NodeWithData([]byte("foo1"))
+	b := NodeWithData([]byte("foo2"))
+	c := NodeWithData([]byte("foo3"))
+	d := NodeWithData([]byte("foo4"))
+
+	ds := dstest.Mock()
+	for _, n := range []node.Node{a, b, c} {
+		_, err := ds.Add(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	parent := new(ProtoNode)
+	if err := parent.AddNodeLinkClean("a", a); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := parent.AddNodeLinkClean("b", b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := parent.AddNodeLinkClean("c", c); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := parent.AddNodeLinkClean("d", d); err != nil {
+		t.Fatal(err)
+	}
+
+	pcid, err := ds.Add(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cset := cid.NewSet()
+	err = EnumerateChildrenAsync(context.Background(), ds, pcid, cset.Visit)
+	if err == nil {
+		t.Fatal("this should have failed")
 	}
 }
