@@ -2,6 +2,7 @@
 package ipfs_lib
 
 import (
+	"context"
 	"bytes"
 	"errors"
 	"fmt"
@@ -12,20 +13,12 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-
-	manet "gx/ipfs/QmPpRcbNUXauP3zWZ1NJMLWpe4QnmEHrd2ba2D3yqWznw7/go-multiaddr-net"
-	ma "gx/ipfs/QmYzDkkgAEmrcNzFCiYo6L1dTX4EAG1gZkbtdbd9trL4vd/go-multiaddr"
-
-	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
-	u "gx/ipfs/QmZNVWh8LLjAavuQ2JXuFmuYH3C11xo988vSgp7UQrTRj1/go-ipfs-util"
-	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	cmdsAsyncChan "github.com/ipfs/go-ipfs/commands/asyncchan"
@@ -36,7 +29,13 @@ import (
 	repo "github.com/ipfs/go-ipfs/repo"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
-	loggables "github.com/ipfs/go-ipfs/thirdparty/loggables"
+
+	logging "gx/ipfs/QmSpJByNKFX1sCsHBEp3R73FL4NF6FnQTEGyNAXHm2GS52/go-log"
+	manet "gx/ipfs/QmT6Cp31887FpAc25z25YHgpFJohZedrYLWPPspRtj1Brp/go-multiaddr-net"
+	loggables "gx/ipfs/QmTMy4hVSY28DdwJ9kBz6y7q6MuioFzPcpM3Ma3aPjo1i3/go-libp2p-loggables"
+	ma "gx/ipfs/QmUAQaWbKxGCUTuoQVvvicbQNZ9APF5pDGWyAZSe93AtKH/go-multiaddr"
+	osh "gx/ipfs/QmXuBJ7DR6k3rmUEKtvVMhwjmXDuJgXXPUt4LQXKBMsU93/go-os-helper"
+	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
 )
 
 // log is the command logger
@@ -102,7 +101,6 @@ func (ins *apiInstance) AsyncApi(cmd string, call cmds.RequestCB, cancel chan st
 		}
 	}()
 	rand.Seed(time.Now().UnixNano())
-	runtime.GOMAXPROCS(3)
 
 	ctx := logging.ContextWithLoggable(context.Background(), loggables.Uuid("session"))
 	var err error
@@ -187,7 +185,6 @@ func ipfsMain(cmd string) (r int, s string, e error) {
 		}
 	}()
 	rand.Seed(time.Now().UnixNano())
-	runtime.GOMAXPROCS(3) // FIXME rm arbitrary choice for n
 
 	args := strings.Split(cmd, cmdSep)
 
@@ -355,6 +352,7 @@ func (i *cmdInvocation) constructNodeFunc(ctx context.Context) func() (*core.Ipf
 		if err != nil {
 			return nil, err
 		}
+		n.SetLocal(true)
 		i.node = n
 		return i.node, nil
 	}
@@ -532,7 +530,7 @@ func commandDetails(path []string, root *cmds.Command) (*cmdDetails, error) {
 }
 
 // commandShouldRunOnDaemon determines, from commmand details, whether a
-// command ought to be executed on an IPFS daemon.
+// command ought to be executed on an ipfs daemon.
 //
 // It returns a client if the command should be executed on a daemon and nil if
 // it should be executed on a client. It returns an error if the command must
@@ -748,23 +746,50 @@ func profileIfEnabled() (func(), error) {
 	return func() {}, nil
 }
 
+var apiFileErrorFmt string = `Failed to parse '%[1]s/api' file.
+	error: %[2]s
+If you're sure go-ipfs isn't running, you can just delete it.
+`
+var checkIPFSUnixFmt = "Otherwise check:\n\tps aux | grep ipfs"
+var checkIPFSWinFmt = "Otherwise check:\n\ttasklist | findstr ipfs"
+
 // getApiClient checks the repo, and the given options, checking for
 // a running API service. if there is one, it returns a client.
 // otherwise, it returns errApiNotRunning, or another error.
 func getApiClient(repoPath, apiAddrStr string) (cmds.Client, error) {
+	var apiErrorFmt string
+	switch {
+	case osh.IsUnix():
+		apiErrorFmt = apiFileErrorFmt + checkIPFSUnixFmt
+	case osh.IsWindows():
+		apiErrorFmt = apiFileErrorFmt + checkIPFSWinFmt
+	default:
+		apiErrorFmt = apiFileErrorFmt
+	}
 
-	if apiAddrStr == "" {
-		var err error
-		if apiAddrStr, err = fsrepo.APIAddr(repoPath); err != nil {
+	var addr ma.Multiaddr
+	var err error
+	if len(apiAddrStr) != 0 {
+		addr, err = ma.NewMultiaddr(apiAddrStr)
+		if err != nil {
 			return nil, err
 		}
-	}
+		if len(addr.Protocols()) == 0 {
+			return nil, fmt.Errorf("mulitaddr doesn't provide any protocols")
+		}
+	} else {
+		addr, err = fsrepo.APIAddr(repoPath)
+		if err == repo.ErrApiNotRunning {
+			return nil, err
+		}
 
-	addr, err := ma.NewMultiaddr(apiAddrStr)
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, fmt.Errorf(apiErrorFmt, repoPath, err.Error())
+		}
 	}
-
+	if len(addr.Protocols()) == 0 {
+		return nil, fmt.Errorf(apiErrorFmt, repoPath, "multiaddr doesn't provide any protocols")
+	}
 	return apiClientForAddr(addr)
 }
 
@@ -778,16 +803,38 @@ func apiClientForAddr(addr ma.Multiaddr) (cmds.Client, error) {
 }
 
 func getAsyncApiClient(repoPath, apiAddrStr string) (cmds.Client, error) {
-	if apiAddrStr == "" {
-		var err error
-		if apiAddrStr, err = fsrepo.APIAddr(repoPath); err != nil {
-			return nil, err
-		}
+	var apiErrorFmt string
+	switch {
+	case osh.IsUnix():
+		apiErrorFmt = apiFileErrorFmt + checkIPFSUnixFmt
+	case osh.IsWindows():
+		apiErrorFmt = apiFileErrorFmt + checkIPFSWinFmt
+	default:
+		apiErrorFmt = apiFileErrorFmt
 	}
 
-	_, err := ma.NewMultiaddr(apiAddrStr)
-	if err != nil {
-		return nil, err
+	var addr ma.Multiaddr
+	var err error
+	if len(apiAddrStr) != 0 {
+		addr, err = ma.NewMultiaddr(apiAddrStr)
+		if err != nil {
+			return nil, err
+		}
+		if len(addr.Protocols()) == 0 {
+			return nil, fmt.Errorf("mulitaddr doesn't provide any protocols")
+		}
+	} else {
+		addr, err = fsrepo.APIAddr(repoPath)
+		if err == repo.ErrApiNotRunning {
+			return nil, err
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf(apiErrorFmt, repoPath, err.Error())
+		}
+	}
+	if len(addr.Protocols()) == 0 {
+		return nil, fmt.Errorf(apiErrorFmt, repoPath, "multiaddr doesn't provide any protocols")
 	}
 
 	return cmdsAsyncChan.NewClient(), nil
