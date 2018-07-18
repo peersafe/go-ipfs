@@ -80,6 +80,10 @@ func Init(out io.Writer, nBitsForKeypair int) (*Config, error) {
 				GracePeriod: DefaultConnMgrGracePeriod.String(),
 				Type:        "basic",
 			},
+			RedMgr: RedMgr{
+				Type:   "copy",
+				RedNum: 0,
+			},
 		},
 	}
 
