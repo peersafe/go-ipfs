@@ -8,6 +8,7 @@ type SwarmConfig struct {
 	EnableRelayHop          bool
 
 	ConnMgr ConnMgr
+	RedMgr  RedMgr
 }
 
 // ConnMgr defines configuration options for the libp2p connection manager
@@ -16,4 +17,10 @@ type ConnMgr struct {
 	LowWater    int
 	HighWater   int
 	GracePeriod string
+}
+
+// RedMgr defines configuration options for the block data redundancy manager
+type RedMgr struct {
+	Type   string
+	RedNum int
 }

@@ -32,11 +32,13 @@ import (
 	namesys "github.com/ipfs/go-ipfs/namesys"
 	ipnsrp "github.com/ipfs/go-ipfs/namesys/republisher"
 	p2p "github.com/ipfs/go-ipfs/p2p"
+	path "github.com/ipfs/go-ipfs/path"
 	"github.com/ipfs/go-ipfs/path/resolver"
 	pin "github.com/ipfs/go-ipfs/pin"
 	repo "github.com/ipfs/go-ipfs/repo"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	ft "github.com/ipfs/go-ipfs/unixfs"
+	uio "github.com/ipfs/go-ipfs/unixfs/io"
 
 	addrutil "gx/ipfs/QmNSWW3Sb4eju4o2djPQ1L1c2Zj9XN9sMYJL8r1cbxdc6b/go-addr-util"
 	yamux "gx/ipfs/QmNWCEvi7bPRcvqAV8AKLGVNoQdArWi7NJayka2SM4XtRe/go-smux-yamux"
@@ -446,6 +448,36 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 	if err != nil {
 		return err
 	}
+	r.SetPinhandle(func(ctx context.Context, args []string) error {
+		// _, err := corerepo.Pin(n, ctx, args, true)
+		r := &resolver.Resolver{
+			DAG:         n.DAG,
+			ResolveOnce: uio.ResolveUnixfsOnce,
+		}
+
+		for _, fpath := range args {
+			p, err := path.ParsePath(fpath)
+			if err != nil {
+				return err
+			}
+
+			dagnode, err := Resolve(ctx, n.Namesys, r, p)
+			if err != nil {
+				return fmt.Errorf("pin: %s", err)
+			}
+			err = n.Pinning.Pin(ctx, dagnode, true)
+			if err != nil {
+				return fmt.Errorf("pin: %s", err)
+			}
+		}
+
+		err := n.Pinning.Flush()
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	n.Routing = r
 
 	// Wrap standard peer host with routing system to allow unknown peer lookups

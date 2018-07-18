@@ -39,6 +39,7 @@ var DhtCmd = &cmds.Command{
 		"get":       getValueDhtCmd,
 		"put":       putValueDhtCmd,
 		"provide":   provideRefDhtCmd,
+		"pinblock":  pinBlockDhtCmd,
 	},
 }
 
@@ -394,6 +395,164 @@ func provideKeysRec(ctx context.Context, r routing.IpfsRouting, dserv ipld.DAGSe
 			}
 
 			err = r.Provide(ctx, k, true)
+			if err != nil {
+				return err
+			}
+			provided.Add(k)
+		}
+	}
+
+	return nil
+}
+
+var pinBlockDhtCmd = &cmds.Command{
+	Helptext: cmdkit.HelpText{
+		Tagline: "Announce to the network that pin block for given values.",
+	},
+
+	Arguments: []cmdkit.Argument{
+		cmdkit.StringArg("key", true, true, "The key[s] to send pin records for.").EnableStdin(),
+	},
+	Options: []cmdkit.Option{
+		cmdkit.BoolOption("verbose", "v", "Print extra information."),
+		cmdkit.BoolOption("recursive", "r", "Recursively pin entire graph."),
+	},
+	Run: func(req cmds.Request, res cmds.Response) {
+		n, err := req.InvocContext().GetNode()
+		if err != nil {
+			res.SetError(err, cmdkit.ErrNormal)
+			return
+		}
+
+		if n.Routing == nil {
+			res.SetError(errNotOnline, cmdkit.ErrNormal)
+			return
+		}
+
+		if len(n.PeerHost.Network().Conns()) == 0 {
+			res.SetError(errors.New("cannot provide, no connected peers"), cmdkit.ErrNormal)
+			return
+		}
+
+		cfg, err := n.Repo.Config()
+		if err != nil {
+			res.SetError(err, cmdkit.ErrNormal)
+			return
+		}
+
+		rec, _, _ := req.Option("recursive").Bool()
+
+		var cids []*cid.Cid
+		for _, arg := range req.Arguments() {
+			c, err := cid.Decode(arg)
+			if err != nil {
+				res.SetError(err, cmdkit.ErrNormal)
+				return
+			}
+
+			has, err := n.Blockstore.Has(c)
+			if err != nil {
+				res.SetError(err, cmdkit.ErrNormal)
+				return
+			}
+
+			if !has {
+				res.SetError(fmt.Errorf("block %s not found locally, cannot provide", c), cmdkit.ErrNormal)
+				return
+			}
+
+			cids = append(cids, c)
+		}
+
+		outChan := make(chan interface{})
+		res.SetOutput((<-chan interface{})(outChan))
+
+		events := make(chan *notif.QueryEvent)
+		ctx := notif.RegisterForQueryEvents(req.Context(), events)
+
+		go func() {
+			defer close(outChan)
+			for e := range events {
+				select {
+				case outChan <- e:
+				case <-req.Context().Done():
+					return
+				}
+			}
+		}()
+
+		go func() {
+			defer close(events)
+			var err error
+			if rec {
+				err = pinBlockKeysRec(ctx, n.Routing, n.DAG, cids, cfg.Swarm.RedMgr.RedNum)
+			} else {
+				err = pinBlockKeys(ctx, n.Routing, cids, cfg.Swarm.RedMgr.RedNum)
+			}
+			if err != nil {
+				notif.PublishQueryEvent(ctx, &notif.QueryEvent{
+					Type:  notif.QueryError,
+					Extra: err.Error(),
+				})
+			}
+		}()
+	},
+	Marshalers: cmds.MarshalerMap{
+		cmds.Text: func() func(res cmds.Response) (io.Reader, error) {
+			pfm := pfuncMap{
+				notif.FinalPeer: func(obj *notif.QueryEvent, out io.Writer, verbose bool) {
+					if verbose {
+						fmt.Fprintf(out, "sending provider record to peer %s\n", obj.ID)
+					}
+				},
+			}
+
+			return func(res cmds.Response) (io.Reader, error) {
+				verbose, _, _ := res.Request().Option("v").Bool()
+				v, err := unwrapOutput(res.Output())
+				if err != nil {
+					return nil, err
+				}
+				obj, ok := v.(*notif.QueryEvent)
+				if !ok {
+					return nil, e.TypeErr(obj, v)
+				}
+
+				buf := new(bytes.Buffer)
+				printEvent(obj, buf, verbose, pfm)
+				return buf, nil
+			}
+		}(),
+	},
+	Type: notif.QueryEvent{},
+}
+
+func pinBlockKeys(ctx context.Context, r routing.IpfsRouting, cids []*cid.Cid, count int) error {
+	for _, c := range cids {
+		err := r.PinBlock(ctx, c, count)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pinBlockKeysRec(ctx context.Context, r routing.IpfsRouting, dserv ipld.DAGService, cids []*cid.Cid, count int) error {
+	provided := cid.NewSet()
+	for _, c := range cids {
+		kset := cid.NewSet()
+
+		err := dag.EnumerateChildrenAsync(ctx, dag.GetLinksDirect(dserv), c, kset.Visit)
+		if err != nil {
+			return err
+		}
+
+		for _, k := range kset.Keys() {
+			if provided.Has(k) {
+				continue
+			}
+
+			err = r.PinBlock(ctx, k, count)
 			if err != nil {
 				return err
 			}
